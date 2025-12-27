@@ -319,6 +319,47 @@
             
             reader.readAsDataURL(file);
         }
+
+        let currentCategory = 'movie';
+    function setAdminTheme(theme) {
+        currentCategory = theme;
+        document.body.className = 'theme-' + theme;
+        // ... (Update buttons UI) ...
+    }
+
+    async function uploadContent() {
+        const formData = new FormData();
+        
+        // Text Fields
+        formData.append('category', currentCategory);
+        formData.append('difficulty', 1);
+        formData.append('stop_timestamp', document.querySelector('input[placeholder="00:10"]').value); // Needs parsing in real app
+        formData.append('answer_quote', document.querySelector('input[placeholder*="Quote Answer"]').value);
+        formData.append('answer_char', document.querySelector('input[placeholder*="Character Name"]').value);
+        formData.append('title', document.querySelector('input[placeholder*="Content Name"]').value);
+
+        // Files
+        const vidFile = document.querySelector('input[accept="video/*"]').files[0];
+        const charFile = document.querySelectorAll('input[accept="image/*"]')[0].files[0];
+        const bannerFile = document.querySelectorAll('input[accept="image/*"]')[1].files[0];
+
+        if(vidFile) formData.append('video', vidFile);
+        if(charFile) formData.append('image_char', charFile);
+        if(bannerFile) formData.append('image_banner', bannerFile);
+
+        try {
+            const res = await fetch('/api/admin/content', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            if(data.success) alert("Uploaded successfully!");
+            else alert("Error: " + data.error);
+        } catch(e) {
+            console.error(e);
+            alert("Upload failed.");
+        }
+    }
     </script>
 </body>
 </html>

@@ -12,20 +12,18 @@ const PORT = 3000;
 // --- MIDDLEWARE ---
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static('public')); // Hosts your HTML/CSS/JS
+app.use(express.static('public')); 
 
-// Session Config (Keeps user logged in)
 app.use(session({
-    secret: 'quotevault_secret_key', // Change this in production
+    secret: 'quotevault_secret_key', 
     resave: false,
     saveUninitialized: false,
-    cookie: { maxAge: 24 * 60 * 60 * 1000 } // 24 hours
+    cookie: { maxAge: 24 * 60 * 60 * 1000 }
 }));
 
-// File Upload Config (Multer)
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, 'public/uploads/'); // Files save to QuoteVault/public/uploads/
+        cb(null, 'public/uploads/');
     },
     filename: (req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -35,41 +33,59 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 // --- ROUTES: PAGES ---
-
-// Serve the main app
 app.get('/', (req, res) => {
-    // If not logged in, send to login page
-    if (!req.session.userId) {
-        return res.sendFile(path.join(__dirname, 'public', 'login.html'));
-    }
+    // Note: We removed the redirect here so the public landing page works for everyone
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Serve Admin Page (Protect this in real app!)
 app.get('/admin', (req, res) => {
+    // Check if logged in AND is admin
+    if (!req.session.userId || !req.session.isAdmin) {
+        return res.redirect('/'); // Kick them back to home
+    }
     res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
-
 // --- ROUTES: AUTH ---
 
-// Sign Up
-app.post('/api/signup', async (req, res) => {
-    const { email, password } = req.body;
-    // Hash the password
-    const hash = await bcrypt.hash(password, 10);
-    
-    const sql = `INSERT INTO users (email, password_hash, username) VALUES (?, ?, ?)`;
-    // Using email as username for prototype simplicity
-    db.run(sql, [email, hash, email.split('@')[0]], function(err) {
-        if (err) return res.status(400).json({ error: "Email likely exists" });
-        
-        req.session.userId = this.lastID; // Auto-login
-        res.json({ success: true });
-    });
+// Check Session & Get User Info
+app.get('/api/me', (req, res) => {
+    if (req.session.userId) {
+        // FIXED: Now selecting avatar_url as well
+        db.get(`SELECT username, email, total_points, avatar_url FROM users WHERE id = ?`, [req.session.userId], (err, row) => {
+            if (row) res.json({ loggedIn: true, user: row });
+            else res.json({ loggedIn: false });
+        });
+    } else {
+        res.json({ loggedIn: false });
+    }
 });
 
-// Login
+// FIXED: Added upload.single('avatar') to handle PFP upload
+app.post('/api/signup', upload.single('avatar'), async (req, res) => {
+    const { email, password, nickname } = req.body;
+    const avatarPath = req.file ? 'uploads/' + req.file.filename : null;
+
+    try {
+        const hash = await bcrypt.hash(password, 10);
+        
+        // FIXED: Using 'nickname' as 'username' and saving 'avatar_url'
+        const sql = `INSERT INTO users (email, password_hash, username, avatar_url) VALUES (?, ?, ?, ?)`;
+        
+        db.run(sql, [email, hash, nickname, avatarPath], function(err) {
+            if (err) {
+                console.error(err);
+                return res.status(400).json({ error: "Email or Username already exists" });
+            }
+            
+            req.session.userId = this.lastID; // Auto-login
+            res.json({ success: true });
+        });
+    } catch (e) {
+        res.status(500).json({ error: "Server error" });
+    }
+});
+
 app.post('/api/login', (req, res) => {
     const { email, password } = req.body;
     
@@ -79,6 +95,7 @@ app.post('/api/login', (req, res) => {
         const match = await bcrypt.compare(password, user.password_hash);
         if (match) {
             req.session.userId = user.id;
+            req.session.isAdmin = user.is_admin; // STORE ADMIN STATUS
             res.json({ success: true });
         } else {
             res.status(401).json({ error: "Invalid password" });
@@ -86,9 +103,12 @@ app.post('/api/login', (req, res) => {
     });
 });
 
-// --- ROUTES: ADMIN (UPLOAD CONTENT) ---
+app.post('/api/logout', (req, res) => {
+    req.session.destroy();
+    res.json({ success: true });
+});
 
-// Handle 3 files at once: video, charImg, bannerImg
+// --- ROUTES: ADMIN (UPLOAD CONTENT) ---
 const uploadFields = upload.fields([
     { name: 'video', maxCount: 1 },
     { name: 'image_char', maxCount: 1 },
@@ -96,12 +116,16 @@ const uploadFields = upload.fields([
 ]);
 
 app.post('/api/admin/content', uploadFields, (req, res) => {
+    // Strict Backend Check
+    if (!req.session.userId || !req.session.isAdmin) {
+        return res.status(403).json({ error: "Access Denied: Admins Only" });
+    }
+    
     const { 
         title, category, difficulty, 
         answer_quote, answer_char, stop_timestamp 
     } = req.body;
 
-    // Get file paths relative to 'public' folder
     const videoPath = req.files['video'] ? 'uploads/' + req.files['video'][0].filename : null;
     const charPath = req.files['image_char'] ? 'uploads/' + req.files['image_char'][0].filename : null;
     const bannerPath = req.files['image_banner'] ? 'uploads/' + req.files['image_banner'][0].filename : null;
@@ -120,21 +144,15 @@ app.post('/api/admin/content', uploadFields, (req, res) => {
     });
 });
 
-
 // --- ROUTES: GAME LOGIC ---
-
-// Get Random Content (Basic Recommendation Stub)
 app.get('/api/content/random', (req, res) => {
     const category = req.query.category || 'movie';
-    
-    // In future: Add complex "User Activity" join here for recommendations
     db.get(`SELECT * FROM content WHERE category = ? ORDER BY RANDOM() LIMIT 1`, [category], (err, row) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(row);
     });
 });
 
-// Check Answer & Log Activity
 app.post('/api/check-answer', (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: "Not logged in" });
 
@@ -146,34 +164,18 @@ app.post('/api/check-answer', (req, res) => {
         let isCorrect = false;
         let correctAnswer = "";
 
-        // Fuzzy Match Logic
         const cleanGuess = userGuess.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
         
-        if (mode === 'quote') {
-            correctAnswer = content.answer_quote;
-            const cleanAnswer = correctAnswer.toLowerCase().replace(/[^a-z0-9]/g, '');
-            isCorrect = cleanGuess === cleanAnswer;
-        } else if (mode === 'character') {
-            correctAnswer = content.answer_char;
-            const cleanAnswer = correctAnswer.toLowerCase().replace(/[^a-z0-9]/g, '');
-            isCorrect = cleanGuess === cleanAnswer;
-        } else if (mode === 'banner') {
-            correctAnswer = content.title;
-            const cleanAnswer = correctAnswer.toLowerCase().replace(/[^a-z0-9]/g, '');
-            isCorrect = cleanGuess === cleanAnswer;
-        }
+        if (mode === 'quote') correctAnswer = content.answer_quote;
+        else if (mode === 'character') correctAnswer = content.answer_char;
+        else if (mode === 'banner') correctAnswer = content.title;
 
-        // --- THE "SCALABLE LOGGING" ---
-        // We insert/update the activity log immediately
-        const logSql = `INSERT INTO user_activity (user_id, content_id, mode, is_solved, attempts, hints_used) 
-                        VALUES (?, ?, ?, ?, ?, ?)`;
-        
-        // In a real app, you might UPDATE if the row exists, but INSERT allows 
-        // you to see history of every session.
+        const cleanAnswer = correctAnswer.toLowerCase().replace(/[^a-z0-9]/g, '');
+        isCorrect = cleanGuess === cleanAnswer;
+
         if (isCorrect) {
-            db.run(logSql, [req.session.userId, contentId, mode, 1, attempts, hints]);
-            
-            // Give Points (Optional: Add to users table)
+            db.run(`INSERT INTO user_activity (user_id, content_id, mode, is_solved, attempts, hints_used) VALUES (?, ?, ?, ?, ?, ?)`, 
+                [req.session.userId, contentId, mode, 1, attempts, hints]);
             db.run(`UPDATE users SET total_points = total_points + 100 WHERE id = ?`, [req.session.userId]);
         }
 
@@ -181,9 +183,6 @@ app.post('/api/check-answer', (req, res) => {
     });
 });
 
-// --- START SERVER ---
 app.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
-    console.log(`- Login: http://localhost:${PORT}/`);
-    console.log(`- Admin: http://localhost:${PORT}/admin`);
 });

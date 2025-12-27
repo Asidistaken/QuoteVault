@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -23,7 +22,6 @@
         </div>
 
         <div class="forms-wrapper">
-
             <form id="signin-form" class="auth-form active">
                 <br>
                 <div class="input-group">
@@ -34,40 +32,41 @@
                     <i class="fa-solid fa-lock"></i>
                     <input type="password" class="auth-input" placeholder="Password" required>
                 </div>
-
                 <button type="submit" class="full-width-btn">Sign In</button>
-
                 <p style="text-align: center; color: var(--text-muted); font-size: 0.9rem; margin-top: 10px;">
                     Forgot Password?
                 </p>
             </form>
 
             <form id="signup-form" class="auth-form">
-
                 <div class="file-upload-wrapper">
                     <i class="fa-solid fa-camera"></i>
                     <img id="pfp-preview" src="" alt="Preview">
-                    <input type="file" accept="image/*" onchange="previewImage(this)">
+                    <input type="file" id="pfp-input" accept="image/*" onchange="previewImage(this)">
+                </div>
+
+                <div class="input-group">
+                    <i class="fa-solid fa-user"></i>
+                    <input type="text" class="auth-input" id="signup-nick" placeholder="Nickname" required>
                 </div>
 
                 <div class="input-group">
                     <i class="fa-solid fa-envelope"></i>
-                    <input type="email" class="auth-input" placeholder="Email" required>
+                    <input type="email" class="auth-input" id="signup-email" placeholder="Email" required>
                 </div>
 
                 <div class="input-group">
                     <i class="fa-solid fa-lock"></i>
-                    <input type="password" class="auth-input" placeholder="Password" required>
+                    <input type="password" class="auth-input" id="signup-pass" placeholder="Password" required>
                 </div>
 
                 <div class="input-group">
                     <i class="fa-solid fa-lock"></i>
-                    <input type="password" class="auth-input" placeholder="Confirm Password" required>
+                    <input type="password" class="auth-input" id="signup-confirm" placeholder="Confirm Password" required>
                 </div>
 
                 <button type="submit" class="full-width-btn">Sign Up</button>
             </form>
-
         </div>
     </div>
 
@@ -78,47 +77,34 @@
         const btns = document.querySelectorAll('.toggle-btn');
         const container = document.querySelector('.auth-container');
 
+        // Toggle Logic
         function switchMode(mode) {
             if (mode === 'signin') {
-                // Slider Animation
                 slider.style.transform = 'translateX(0)';
                 btns[0].classList.add('active');
                 btns[1].classList.remove('active');
-
-                // Form Animation
                 signinForm.classList.add('active');
                 signinForm.classList.remove('left');
                 signupForm.classList.remove('active');
-
-                // Adjust container height if needed (optional)
                 container.style.height = '500px';
-
-                //make tab name Sign In
                 document.title = "QuoteVault - Sign In";
-
             } else {
-                // Slider Animation
                 slider.style.transform = 'translateX(100%)';
                 btns[0].classList.remove('active');
                 btns[1].classList.add('active');
-
-                // Form Animation
                 signinForm.classList.remove('active');
-                signinForm.classList.add('left'); // Move it to the left
+                signinForm.classList.add('left');
                 signupForm.classList.add('active');
-
-                // Adjust container height for extra fields
-                container.style.height = '700px';
-
+                container.style.height = '750px'; // Increased height for nickname field
                 document.title = "QuoteVault - Sign Up";
             }
         }
 
-        // Simple Image Preview Logic
+        // Image Preview Logic
         function previewImage(input) {
             if (input.files && input.files[0]) {
                 const reader = new FileReader();
-                reader.onload = function (e) {
+                reader.onload = function(e) {
                     const img = document.getElementById('pfp-preview');
                     img.src = e.target.result;
                     img.style.display = 'block';
@@ -126,7 +112,67 @@
                 reader.readAsDataURL(input.files[0]);
             }
         }
+
+        // --- AUTH LOGIC ---
+
+        // Sign In
+        document.getElementById('signin-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const inputs = e.target.querySelectorAll('input');
+            const email = inputs[0].value;
+            const password = inputs[1].value;
+
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await res.json();
+                if (data.success) window.location.href = '/';
+                else alert(data.error || 'Login failed');
+            } catch (err) { alert("Server connection error"); }
+        });
+
+        // Sign Up (Updated to use FormData)
+        document.getElementById('signup-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const nickname = document.getElementById('signup-nick').value;
+            const email = document.getElementById('signup-email').value;
+            const password = document.getElementById('signup-pass').value;
+            const confirm = document.getElementById('signup-confirm').value;
+            const fileInput = document.getElementById('pfp-input');
+
+            if(password !== confirm) {
+                alert("Passwords do not match!");
+                return;
+            }
+
+            // Create FormData to send text + file
+            const formData = new FormData();
+            formData.append('nickname', nickname);
+            formData.append('email', email);
+            formData.append('password', password);
+            if (fileInput.files[0]) {
+                formData.append('avatar', fileInput.files[0]);
+            }
+
+            try {
+                const res = await fetch('/api/signup', {
+                    method: 'POST',
+                    // Note: Do NOT set Content-Type header when sending FormData
+                    body: formData 
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert("Account created! Logging you in...");
+                    window.location.href = '/';
+                } else {
+                    alert(data.error || 'Signup failed');
+                }
+            } catch (err) { alert("Server connection error"); }
+        });
     </script>
 </body>
-
 </html>
