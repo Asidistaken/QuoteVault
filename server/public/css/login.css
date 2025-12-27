@@ -1,0 +1,213 @@
+/* --- LOGIN PAGE SPECIFIC STYLES --- */
+body {
+    background: var(--bg-color);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+}
+
+/* Container */
+.auth-container {
+    position: relative;
+    width: 400px;
+    height: 500px; /* Default starting height (Sign In) */
+    background: var(--card-bg);
+    border-radius: 24px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 40px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    /* This ensures the jump from 500px to 700px is animated smoothly */
+    transition: height 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.site-header {
+    margin-bottom: 30px;
+    flex-shrink: 0;
+}
+
+/* Toggle Switch */
+.toggle-box {
+    display: flex;
+    background: rgba(0,0,0,0.3);
+    border-radius: 30px;
+    padding: 5px;
+    position: relative;
+    margin-bottom: 30px;
+    width: 100%;
+    border: 1px solid rgba(255,255,255,0.05);
+    flex-shrink: 0;
+}
+
+.toggle-btn {
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    padding: 10px;
+    font-size: 1rem;
+    cursor: pointer;
+    z-index: 2;
+    transition: color 0.3s;
+    font-weight: 600;
+}
+
+.toggle-btn.active {
+    color: white;
+}
+
+.toggle-slider {
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    width: calc(50% - 5px);
+    height: calc(100% - 10px);
+    background: var(--primary);
+    border-radius: 25px;
+    transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+    z-index: 1;
+    box-shadow: 0 0 15px var(--primary);
+}
+
+/* Forms Wrapper */
+.forms-wrapper {
+    position: relative;
+    width: 100%;
+    flex-grow: 1; /* This ensures the wrapper fills all available vertical space */
+    /* No height defined here; it relies on the flex parent */
+}
+
+.auth-form {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%; /* KEY CHANGE: Form takes full height of the wrapper */
+    
+    /* Center the content vertically */
+    display: flex;
+    flex-direction: column;
+    justify-content: center; /* KEY CHANGE: Pushes inputs to the middle */
+    
+    gap: 15px;
+    transition: all 0.4s ease;
+    
+    /* Default Hidden State */
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(50px);
+}
+
+/* 1. Active State */
+.auth-form.active {
+    opacity: 1;
+    pointer-events: all;
+    transform: translateX(0);
+}
+
+/* 2. Left State */
+.auth-form.left {
+    transform: translateX(-50px) !important;
+    opacity: 0;
+}
+
+/* Input Fields */
+.input-group {
+    position: relative;
+}
+
+.input-group i {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    font-size: 1.1rem;
+}
+
+.auth-input {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.2);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    padding: 15px 15px 15px 45px;
+    border-radius: 12px;
+    color: white;
+    font-size: 1rem;
+    outline: none;
+    transition: border-color 0.3s;
+}
+
+.auth-input:focus {
+    border-color: var(--primary);
+}
+
+/* PFP Upload - Adjusted for better spacing in 700px layout */
+.file-upload-wrapper {
+    position: relative;
+    width: 110px; /* Slightly larger */
+    height: 110px;
+    border-radius: 50%;
+    border: 2px dashed rgba(255,255,255,0.2);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 0 auto 15px auto; /* More bottom margin */
+    cursor: pointer;
+    overflow: hidden;
+    background: rgba(0,0,0,0.2);
+    transition: all 0.3s;
+}
+
+.file-upload-wrapper:hover {
+    border-color: var(--primary);
+    background: rgba(0,0,0,0.4);
+}
+
+.file-upload-wrapper i {
+    font-size: 2.2rem;
+    color: var(--text-muted);
+    z-index: 1;
+}
+
+.file-upload-wrapper img {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 2;
+    display: none;
+}
+
+.file-upload-wrapper input[type="file"] {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 3;
+}
+
+/* Buttons */
+.full-width-btn {
+    width: 100%;
+    padding: 15px;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    margin-top: 10px;
+}
+
+.full-width-btn:hover {
+    transform: scale(1.02);
+    box-shadow: 0 0 20px var(--primary);
+}

@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuoteVault - Admin</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/styles.css">
+    <style>
+        /* --- ADMIN SPECIFIC STYLES --- */
+        body {
+            background: var(--bg-color);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px 20px;
+        }
+
+        .admin-container {
+            width: 100%;
+            max-width: 1200px;
+            background: var(--card-bg);
+            border-radius: 24px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+
+        /* Header Area */
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 20px;
+        }
+
+        .admin-title {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: white;
+            letter-spacing: 2px;
+        }
+
+        .admin-title span { color: var(--primary); }
+
+        /* Category Selector */
+        .category-select {
+            display: flex;
+            gap: 10px;
+            background: rgba(0,0,0,0.3);
+            padding: 5px;
+            border-radius: 12px;
+        }
+
+        .cat-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 8px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .cat-btn.active {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 0 15px var(--primary);
+        }
+
+        /* The Grid (Triad Layout) */
+        .upload-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+
+        .upload-card {
+            background: rgba(255,255,255,0.02);
+            border-radius: 16px;
+            padding: 20px;
+            border: 1px solid rgba(255,255,255,0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .card-label {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            text-align: center;
+        }
+
+        /* Upload Zone (Dashed Box) */
+        .drop-zone {
+            width: 100%;
+            aspect-ratio: 1/1; /* Square box */
+            border: 2px dashed rgba(255,255,255,0.2);
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+            background: rgba(0,0,0,0.2);
+        }
+
+        .drop-zone:hover {
+            border-color: var(--primary);
+            background: rgba(255,255,255,0.05);
+        }
+
+        .drop-zone i {
+            font-size: 3rem;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+            z-index: 1;
+        }
+
+        .drop-zone p {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            z-index: 1;
+        }
+
+        /* Previews */
+        .preview-media {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* Fills the square */
+            display: none;
+            z-index: 2;
+        }
+
+        /* Inputs */
+        .admin-input {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 12px;
+            border-radius: 8px;
+            color: white;
+            font-size: 0.9rem;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .admin-input:focus {
+            border-color: var(--primary);
+        }
+
+        /* Timestamp specific layout */
+        .timestamp-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .small-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+
+        /* Action Bar */
+        .action-bar {
+            display: flex;
+            justify-content: flex-end;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            padding-top: 20px;
+        }
+
+        .save-btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: transform 0.2s;
+        }
+
+        .save-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px var(--primary);
+        }
+
+        /* Responsive Fix */
+        @media (max-width: 900px) {
+            .upload-grid {
+                grid-template-columns: 1fr;
+            }
+            .drop-zone {
+                aspect-ratio: 16/9; /* Wider on mobile */
+            }
+        }
+    </style>
+</head>
+<body class="theme-movie">
+
+    <div class="admin-container">
+        <header class="admin-header">
+            <div class="admin-title">QUOTE<span>VAULT</span> ADMIN</div>
+            
+            <div class="category-select">
+                <button class="cat-btn active" onclick="setAdminTheme('movie')">Movie</button>
+                <button class="cat-btn" onclick="setAdminTheme('series')">Series</button>
+                <button class="cat-btn" onclick="setAdminTheme('game')">Game</button>
+            </div>
+        </header>
+
+        <div class="upload-grid">
+            
+            <div class="upload-card">
+                <div class="card-label">Quote Video</div>
+                
+                <label class="drop-zone">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                    <p>Upload Video (.mp4)</p>
+                    <input type="file" accept="video/*" hidden onchange="previewFile(this, 'video')">
+                    <video class="preview-media" controls></video>
+                </label>
+
+                <div class="timestamp-group">
+                    <span class="small-label"><i class="fa-solid fa-stopwatch"></i> Stop At:</span>
+                    <input type="text" class="admin-input" placeholder="00:10" title="MM:SS">
+                </div>
+                
+                <input type="text" class="admin-input" placeholder="Quote Answer (e.g. Say my name)">
+            </div>
+
+            <div class="upload-card">
+                <div class="card-label">Character Image</div>
+                
+                <label class="drop-zone">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                    <p>Upload Image (.png/jpg)</p>
+                    <input type="file" accept="image/*" hidden onchange="previewFile(this, 'image')">
+                    <img class="preview-media">
+                </label>
+
+                <input type="text" class="admin-input" placeholder="Character Name (e.g. Jesse Pinkman)">
+            </div>
+
+            <div class="upload-card">
+                <div class="card-label">Cover / Banner Image</div>
+                
+                <label class="drop-zone">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                    <p>Upload Image (.png/jpg)</p>
+                    <input type="file" accept="image/*" hidden onchange="previewFile(this, 'image')">
+                    <img class="preview-media">
+                </label>
+
+                <input type="text" class="admin-input" placeholder="Content Name (e.g. Breaking Bad)">
+            </div>
+
+        </div>
+
+        <div class="action-bar">
+            <button class="save-btn">
+                <i class="fa-solid fa-floppy-disk"></i> Save Content
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // 1. Theme/Category Switcher
+        function setAdminTheme(theme) {
+            // Change variable classes
+            document.body.className = 'theme-' + theme;
+            
+            // Toggle Active Buttons
+            document.querySelectorAll('.cat-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if(btn.onclick.toString().includes(theme)) btn.classList.add('active');
+            });
+        }
+
+        // 2. File Preview Logic
+        function previewFile(input, type) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            // Find the preview element inside the same label
+            const previewEl = input.parentElement.querySelector('.preview-media');
+            const icon = input.parentElement.querySelector('i');
+            const text = input.parentElement.querySelector('p');
+
+            reader.onload = function(e) {
+                previewEl.src = e.target.result;
+                previewEl.style.display = 'block';
+                
+                // Hide icon text for cleaner look (optional, but looks nice)
+                // icon.style.opacity = '0';
+                // text.style.opacity = '0';
+            }
+            
+            reader.readAsDataURL(file);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuoteVault - Sign In</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/login.css">
+</head>
+
+<body class="theme-movie">
+    <div class="auth-container">
+        <header class="site-header">
+            <h1>QUOTE<span>VAULT</span></h1>
+        </header>
+
+        <div class="toggle-box">
+            <div class="toggle-slider" id="slider"></div>
+            <button class="toggle-btn active" onclick="switchMode('signin')">Sign In</button>
+            <button class="toggle-btn" onclick="switchMode('signup')">Sign Up</button>
+        </div>
+
+        <div class="forms-wrapper">
+
+            <form id="signin-form" class="auth-form active">
+                <br>
+                <div class="input-group">
+                    <i class="fa-solid fa-envelope"></i>
+                    <input type="email" class="auth-input" placeholder="Email" required>
+                </div>
+                <div class="input-group">
+                    <i class="fa-solid fa-lock"></i>
+                    <input type="password" class="auth-input" placeholder="Password" required>
+                </div>
+
+                <button type="submit" class="full-width-btn">Sign In</button>
+
+                <p style="text-align: center; color: var(--text-muted); font-size: 0.9rem; margin-top: 10px;">
+                    Forgot Password?
+                </p>
+            </form>
+
+            <form id="signup-form" class="auth-form">
+
+                <div class="file-upload-wrapper">
+                    <i class="fa-solid fa-camera"></i>
+                    <img id="pfp-preview" src="" alt="Preview">
+                    <input type="file" accept="image/*" onchange="previewImage(this)">
+                </div>
+
+                <div class="input-group">
+                    <i class="fa-solid fa-envelope"></i>
+                    <input type="email" class="auth-input" placeholder="Email" required>
+                </div>
+
+                <div class="input-group">
+                    <i class="fa-solid fa-lock"></i>
+                    <input type="password" class="auth-input" placeholder="Password" required>
+                </div>
+
+                <div class="input-group">
+                    <i class="fa-solid fa-lock"></i>
+                    <input type="password" class="auth-input" placeholder="Confirm Password" required>
+                </div>
+
+                <button type="submit" class="full-width-btn">Sign Up</button>
+            </form>
+
+        </div>
+    </div>
+
+    <script>
+        const slider = document.getElementById('slider');
+        const signinForm = document.getElementById('signin-form');
+        const signupForm = document.getElementById('signup-form');
+        const btns = document.querySelectorAll('.toggle-btn');
+        const container = document.querySelector('.auth-container');
+
+        function switchMode(mode) {
+            if (mode === 'signin') {
+                // Slider Animation
+                slider.style.transform = 'translateX(0)';
+                btns[0].classList.add('active');
+                btns[1].classList.remove('active');
+
+                // Form Animation
+                signinForm.classList.add('active');
+                signinForm.classList.remove('left');
+                signupForm.classList.remove('active');
+
+                // Adjust container height if needed (optional)
+                container.style.height = '500px';
+
+                //make tab name Sign In
+                document.title = "QuoteVault - Sign In";
+
+            } else {
+                // Slider Animation
+                slider.style.transform = 'translateX(100%)';
+                btns[0].classList.remove('active');
+                btns[1].classList.add('active');
+
+                // Form Animation
+                signinForm.classList.remove('active');
+                signinForm.classList.add('left'); // Move it to the left
+                signupForm.classList.add('active');
+
+                // Adjust container height for extra fields
+                container.style.height = '700px';
+
+                document.title = "QuoteVault - Sign Up";
+            }
+        }
+
+        // Simple Image Preview Logic
+        function previewImage(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const img = document.getElementById('pfp-preview');
+                    img.src = e.target.result;
+                    img.style.display = 'block';
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+    </script>
+</body>
+
+</html>

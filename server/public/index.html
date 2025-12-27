@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuoteVault</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="theme-movie">
+
+    <div class="profile-widget">
+        <img src="https://robohash.org/player1?set=set4&bgset=bg1" alt="Profile">
+    </div>
+
+    <div class="main-container">
+        
+        <header class="site-header">
+            <h1>QUOTE<span>VAULT</span></h1>
+        </header>
+
+        <div class="app-layout">
+            
+            <div class="sidebar-wrapper">
+                <aside class="sidebar category-sidebar">
+                    <button class="nav-btn active" onclick="setTheme('movie')" title="Movies">
+                        <i class="fa-solid fa-film"></i>
+                        <span>Movies</span>
+                    </button>
+                    <button class="nav-btn" onclick="setTheme('series')" title="Series">
+                        <i class="fa-solid fa-tv"></i>
+                        <span>Series</span>
+                    </button>
+                    <button class="nav-btn" onclick="setTheme('game')" title="Games">
+                        <i class="fa-solid fa-gamepad"></i>
+                        <span>Games</span>
+                    </button>
+                </aside>
+
+                <aside class="sidebar mode-sidebar">
+                    <button class="mode-btn active" onclick="setMode('quote')" title="Quote Echo">
+                        <i class="fa-solid fa-clapperboard"></i>
+                    </button>
+                    <button class="mode-btn" onclick="setMode('character')" title="Character Visage">
+                        <i class="fa-solid fa-user-secret"></i>
+                    </button>
+                    <button class="mode-btn" onclick="setMode('banner')" title="Banner Fragment">
+                        <i class="fa-solid fa-image"></i>
+                    </button>
+
+                    <button class="mode-btn suggest-btn" title="Suggest Content">
+                        <i class="fa-solid fa-shuffle"></i>
+                    </button>
+                </aside>
+            </div>
+
+            <main class="content-area">
+                <div class="display-card">
+                    <div id="view-quote" class="content-view active">
+                        <div class="player-container">
+                            <div class="video-wrapper">
+                                <video id="clip" playsinline preload="metadata">
+                                    <source src="" type="video/mp4">
+                                </video>
+                                <canvas id="thumbnail-canvas"></canvas>
+                                <div class="play-hint">
+                                    <i class="fa-solid fa-play"></i> Click to Play
+                                </div>
+                                <button id="restart-btn" class="restart-btn" title="Play from Start">
+                                    <i class="fa-solid fa-rotate-left"></i>
+                                </button>
+                            </div>
+                            <div class="volume-container">
+                                <div class="volume-slider">
+                                    <div class="volume-percent">50%</div>
+                                    <div class="slider-track">
+                                        <div class="slider-fill"></div>
+                                        <div class="slider-thumb"></div>
+                                        <input id="volume" type="range" min="0" max="100" step="1" value="50">
+                                    </div>
+                                    <div class="volume-icon">
+                                        <i class="fa-solid fa-volume-high"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="view-character" class="content-view">
+                        <div class="image-display character-wrapper">
+                            <img id="char-img" src="" alt="Character">
+                        </div>
+                    </div>
+
+                    <div id="view-banner" class="content-view">
+                        <div class="image-display banner-wrapper">
+                            <img id="banner-img" src="" alt="Banner">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="answer-section">
+                    <button class="hint-btn" title="Get a Hint" onclick="revealHint()">
+                        <i class="fa-solid fa-lightbulb"></i>
+                    </button>
+                    
+                    <input type="text" placeholder="Guess..." class="answer-input">
+                    <button class="submit-btn">
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="js/player.js"></script>
+    <script src="js/game.js"></script>
+
+    <script>
+        function setTheme(theme) {
+            document.body.className = 'theme-' + theme;
+            
+            document.querySelectorAll('.category-sidebar .nav-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if(btn.onclick.toString().includes(theme)) btn.classList.add('active');
+            });
+
+            if(window.loadCategoryContent) {
+                window.loadCategoryContent(theme);
+            }
+        }
+
+        function setMode(modeName) {
+            // 1. Update Buttons
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                if (btn.classList.contains('suggest-btn')) return;
+                btn.classList.remove('active');
+                if(btn.onclick.toString().includes(modeName)) btn.classList.add('active');
+            });
+
+            // 2. Switch View
+            document.querySelectorAll('.content-view').forEach(view => {
+                view.classList.remove('active');
+            });
+            const targetView = document.getElementById('view-' + modeName);
+            if(targetView) targetView.classList.add('active');
+
+            // 3. Logic Updates
+            window.currentMode = modeName;
+            
+            // KEY FIX: Update the input field state (clear text or show 'solved')
+            if (window.updateInputState) {
+                window.updateInputState();
+            }
+
+            // Pause video if leaving quote mode
+            const video = document.getElementById('clip');
+            if (modeName !== 'quote' && video && !video.paused) {
+                video.pause();
+                document.querySelector('.video-wrapper').classList.remove('playing');
+            }
+        }
+    </script>
+</body>
+</html>
