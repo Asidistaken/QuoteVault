@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="css/login.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 
 <body class="theme-movie">
@@ -95,12 +96,11 @@
                 signinForm.classList.remove('active');
                 signinForm.classList.add('left');
                 signupForm.classList.add('active');
-                container.style.height = '750px'; // Increased height for nickname field
+                container.style.height = '750px'; 
                 document.title = "QuoteVault - Sign Up";
             }
         }
 
-        // Image Preview Logic
         function previewImage(input) {
             if (input.files && input.files[0]) {
                 const reader = new FileReader();
@@ -130,11 +130,21 @@
                 });
                 const data = await res.json();
                 if (data.success) window.location.href = '/';
-                else alert(data.error || 'Login failed');
-            } catch (err) { alert("Server connection error"); }
+                else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Login Failed',
+                        text: data.error || 'Unknown error',
+                        background: '#1a1a1a',
+                        color: '#fff'
+                    });
+                }
+            } catch (err) { 
+                Swal.fire({ icon: 'error', title: 'Error', text: 'Server connection failed' });
+            }
         });
 
-        // Sign Up (Updated to use FormData)
+        // Sign Up
         document.getElementById('signup-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             
@@ -145,11 +155,16 @@
             const fileInput = document.getElementById('pfp-input');
 
             if(password !== confirm) {
-                alert("Passwords do not match!");
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Mismatch',
+                    text: 'Passwords do not match!',
+                    background: '#1a1a1a',
+                    color: '#fff'
+                });
                 return;
             }
 
-            // Create FormData to send text + file
             const formData = new FormData();
             formData.append('nickname', nickname);
             formData.append('email', email);
@@ -161,17 +176,33 @@
             try {
                 const res = await fetch('/api/signup', {
                     method: 'POST',
-                    // Note: Do NOT set Content-Type header when sending FormData
                     body: formData 
                 });
                 const data = await res.json();
                 if (data.success) {
-                    alert("Account created! Logging you in...");
-                    window.location.href = '/';
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Welcome!',
+                        text: 'Account created successfully.',
+                        background: '#1a1a1a',
+                        color: '#fff',
+                        timer: 1500,
+                        showConfirmButton: false
+                    }).then(() => {
+                        window.location.href = '/';
+                    });
                 } else {
-                    alert(data.error || 'Signup failed');
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Signup Failed',
+                        text: data.error || 'Unknown error',
+                        background: '#1a1a1a',
+                        color: '#fff'
+                    });
                 }
-            } catch (err) { alert("Server connection error"); }
+            } catch (err) { 
+                Swal.fire({ icon: 'error', title: 'Error', text: 'Server connection failed' });
+            }
         });
     </script>
 </body>

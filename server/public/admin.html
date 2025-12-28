@@ -6,6 +6,7 @@
     <title>QuoteVault - Admin</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         /* --- ADMIN SPECIFIC STYLES --- */
         body {
@@ -217,11 +218,9 @@
     </style>
 </head>
 <body class="theme-movie">
-
     <div class="admin-container">
         <header class="admin-header">
             <div class="admin-title">QUOTE<span>VAULT</span> ADMIN</div>
-            
             <div class="category-select">
                 <button class="cat-btn active" onclick="setAdminTheme('movie')">Movie</button>
                 <button class="cat-btn" onclick="setAdminTheme('series')">Series</button>
@@ -230,55 +229,46 @@
         </header>
 
         <div class="upload-grid">
-            
             <div class="upload-card">
                 <div class="card-label">Quote Video</div>
-                
                 <label class="drop-zone">
                     <i class="fa-solid fa-cloud-arrow-up"></i>
                     <p>Upload Video (.mp4)</p>
                     <input type="file" accept="video/*" hidden onchange="previewFile(this, 'video')">
                     <video class="preview-media" controls></video>
                 </label>
-
                 <div class="timestamp-group">
                     <span class="small-label"><i class="fa-solid fa-stopwatch"></i> Stop At:</span>
                     <input type="text" class="admin-input" placeholder="00:10" title="MM:SS">
                 </div>
-                
                 <input type="text" class="admin-input" placeholder="Quote Answer (e.g. Say my name)">
             </div>
 
             <div class="upload-card">
                 <div class="card-label">Character Image</div>
-                
                 <label class="drop-zone">
                     <i class="fa-solid fa-cloud-arrow-up"></i>
                     <p>Upload Image (.png/jpg)</p>
                     <input type="file" accept="image/*" hidden onchange="previewFile(this, 'image')">
                     <img class="preview-media">
                 </label>
-
                 <input type="text" class="admin-input" placeholder="Character Name (e.g. Jesse Pinkman)">
             </div>
 
             <div class="upload-card">
                 <div class="card-label">Cover / Banner Image</div>
-                
                 <label class="drop-zone">
                     <i class="fa-solid fa-cloud-arrow-up"></i>
                     <p>Upload Image (.png/jpg)</p>
                     <input type="file" accept="image/*" hidden onchange="previewFile(this, 'image')">
                     <img class="preview-media">
                 </label>
-
                 <input type="text" class="admin-input" placeholder="Content Name (e.g. Breaking Bad)">
             </div>
-
         </div>
 
         <div class="action-bar">
-            <button class="save-btn">
+            <button class="save-btn" onclick="uploadContent()">
                 <i class="fa-solid fa-floppy-disk"></i> Save Content
             </button>
         </div>
@@ -287,14 +277,12 @@
     <script>
         // 1. Theme/Category Switcher
         function setAdminTheme(theme) {
-            // Change variable classes
             document.body.className = 'theme-' + theme;
-            
-            // Toggle Active Buttons
             document.querySelectorAll('.cat-btn').forEach(btn => {
                 btn.classList.remove('active');
                 if(btn.onclick.toString().includes(theme)) btn.classList.add('active');
             });
+            currentCategory = theme;
         }
 
         // 2. File Preview Logic
@@ -303,63 +291,71 @@
             if (!file) return;
 
             const reader = new FileReader();
-            // Find the preview element inside the same label
             const previewEl = input.parentElement.querySelector('.preview-media');
-            const icon = input.parentElement.querySelector('i');
-            const text = input.parentElement.querySelector('p');
-
             reader.onload = function(e) {
                 previewEl.src = e.target.result;
                 previewEl.style.display = 'block';
-                
-                // Hide icon text for cleaner look (optional, but looks nice)
-                // icon.style.opacity = '0';
-                // text.style.opacity = '0';
             }
-            
             reader.readAsDataURL(file);
         }
 
         let currentCategory = 'movie';
-    function setAdminTheme(theme) {
-        currentCategory = theme;
-        document.body.className = 'theme-' + theme;
-        // ... (Update buttons UI) ...
-    }
 
-    async function uploadContent() {
-        const formData = new FormData();
-        
-        // Text Fields
-        formData.append('category', currentCategory);
-        formData.append('difficulty', 1);
-        formData.append('stop_timestamp', document.querySelector('input[placeholder="00:10"]').value); // Needs parsing in real app
-        formData.append('answer_quote', document.querySelector('input[placeholder*="Quote Answer"]').value);
-        formData.append('answer_char', document.querySelector('input[placeholder*="Character Name"]').value);
-        formData.append('title', document.querySelector('input[placeholder*="Content Name"]').value);
+        async function uploadContent() {
+            const formData = new FormData();
+            
+            // Text Fields
+            formData.append('category', currentCategory);
+            formData.append('difficulty', 1);
+            formData.append('stop_timestamp', document.querySelector('input[placeholder="00:10"]').value); 
+            formData.append('answer_quote', document.querySelector('input[placeholder*="Quote Answer"]').value);
+            formData.append('answer_char', document.querySelector('input[placeholder*="Character Name"]').value);
+            formData.append('title', document.querySelector('input[placeholder*="Content Name"]').value);
 
-        // Files
-        const vidFile = document.querySelector('input[accept="video/*"]').files[0];
-        const charFile = document.querySelectorAll('input[accept="image/*"]')[0].files[0];
-        const bannerFile = document.querySelectorAll('input[accept="image/*"]')[1].files[0];
+            // Files
+            const vidFile = document.querySelector('input[accept="video/*"]').files[0];
+            const charFile = document.querySelectorAll('input[accept="image/*"]')[0].files[0];
+            const bannerFile = document.querySelectorAll('input[accept="image/*"]')[1].files[0];
 
-        if(vidFile) formData.append('video', vidFile);
-        if(charFile) formData.append('image_char', charFile);
-        if(bannerFile) formData.append('image_banner', bannerFile);
+            if(vidFile) formData.append('video', vidFile);
+            if(charFile) formData.append('image_char', charFile);
+            if(bannerFile) formData.append('image_banner', bannerFile);
 
-        try {
-            const res = await fetch('/api/admin/content', {
-                method: 'POST',
-                body: formData
-            });
-            const data = await res.json();
-            if(data.success) alert("Uploaded successfully!");
-            else alert("Error: " + data.error);
-        } catch(e) {
-            console.error(e);
-            alert("Upload failed.");
+            try {
+                const res = await fetch('/api/admin/content', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                
+                if(data.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Uploaded!',
+                        text: 'Content saved successfully.',
+                        background: '#1a1a1a',
+                        color: '#fff'
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: data.error,
+                        background: '#1a1a1a',
+                        color: '#fff'
+                    });
+                }
+            } catch(e) {
+                console.error(e);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Failed',
+                    text: 'Upload failed due to server error.',
+                    background: '#1a1a1a',
+                    color: '#fff'
+                });
+            }
         }
-    }
     </script>
 </body>
 </html>

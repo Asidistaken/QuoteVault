@@ -4,6 +4,7 @@ const session = require('express-session');
 const bcrypt = require('bcrypt');
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs'); // Added for file cleanup
 const db = require('./database');
 
 const app = express();
@@ -34,24 +35,20 @@ const upload = multer({ storage: storage });
 
 // --- ROUTES: PAGES ---
 app.get('/', (req, res) => {
-    // Note: We removed the redirect here so the public landing page works for everyone
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 app.get('/admin', (req, res) => {
-    // Check if logged in AND is admin
     if (!req.session.userId || !req.session.isAdmin) {
-        return res.redirect('/'); // Kick them back to home
+        return res.redirect('/'); 
     }
     res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
 // --- ROUTES: AUTH ---
 
-// Check Session & Get User Info
 app.get('/api/me', (req, res) => {
     if (req.session.userId) {
-        // FIXED: Now selecting avatar_url as well
         db.get(`SELECT username, email, total_points, avatar_url FROM users WHERE id = ?`, [req.session.userId], (err, row) => {
             if (row) res.json({ loggedIn: true, user: row });
             else res.json({ loggedIn: false });
@@ -61,27 +58,57 @@ app.get('/api/me', (req, res) => {
     }
 });
 
-// FIXED: Added upload.single('avatar') to handle PFP upload
 app.post('/api/signup', upload.single('avatar'), async (req, res) => {
     const { email, password, nickname } = req.body;
     const avatarPath = req.file ? 'uploads/' + req.file.filename : null;
 
+    // Helper to cleanup file if anything fails
+    const cleanupFile = () => {
+        if (req.file) {
+            fs.unlink(req.file.path, (err) => {
+                if (err) console.error("Failed to delete temp file:", err);
+            });
+        }
+    };
+
     try {
+        // 1. Check for duplicates specifically
+        const existingUser = await new Promise((resolve, reject) => {
+            db.get(`SELECT email, username FROM users WHERE email = ? OR username = ?`, [email, nickname], (err, row) => {
+                if (err) reject(err);
+                else resolve(row);
+            });
+        });
+
+        if (existingUser) {
+            cleanupFile(); // Delete the uploaded PFP
+            if (existingUser.email === email) {
+                return res.status(400).json({ error: "Email already exists" });
+            }
+            if (existingUser.username === nickname) {
+                return res.status(400).json({ error: "Nickname already taken" });
+            }
+        }
+
+        // 2. Hash Password
         const hash = await bcrypt.hash(password, 10);
         
-        // FIXED: Using 'nickname' as 'username' and saving 'avatar_url'
+        // 3. Insert User
         const sql = `INSERT INTO users (email, password_hash, username, avatar_url) VALUES (?, ?, ?, ?)`;
         
         db.run(sql, [email, hash, nickname, avatarPath], function(err) {
             if (err) {
+                cleanupFile(); // Delete PFP if DB error
                 console.error(err);
-                return res.status(400).json({ error: "Email or Username already exists" });
+                return res.status(500).json({ error: "Database error" });
             }
             
             req.session.userId = this.lastID; // Auto-login
             res.json({ success: true });
         });
+
     } catch (e) {
+        cleanupFile(); // Delete PFP if Server error
         res.status(500).json({ error: "Server error" });
     }
 });
@@ -95,7 +122,7 @@ app.post('/api/login', (req, res) => {
         const match = await bcrypt.compare(password, user.password_hash);
         if (match) {
             req.session.userId = user.id;
-            req.session.isAdmin = user.is_admin; // STORE ADMIN STATUS
+            req.session.isAdmin = user.is_admin; 
             res.json({ success: true });
         } else {
             res.status(401).json({ error: "Invalid password" });
@@ -116,7 +143,6 @@ const uploadFields = upload.fields([
 ]);
 
 app.post('/api/admin/content', uploadFields, (req, res) => {
-    // Strict Backend Check
     if (!req.session.userId || !req.session.isAdmin) {
         return res.status(403).json({ error: "Access Denied: Admins Only" });
     }
