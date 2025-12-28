@@ -2,16 +2,14 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 
-// Create/Open the database file
 const dbPath = path.resolve(__dirname, 'quotevault.db');
 const db = new sqlite3.Database(dbPath, (err) => {
     if (err) console.error('Database opening error: ', err);
     else console.log('Connected to SQLite database.');
 });
 
-// Serialize ensures these run in order
 db.serialize(() => {
-    // 1. Users Table (ADDED: avatar_url)
+    // 1. Users
     db.run(`CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE,
@@ -19,52 +17,61 @@ db.serialize(() => {
         password_hash TEXT,
         avatar_url TEXT,
         total_points INTEGER DEFAULT 0,
-        is_admin INTEGER DEFAULT 0,  -- 0 = User, 1 = Admin
+        is_admin INTEGER DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
-    // 2. Content Table
-    db.run(`CREATE TABLE IF NOT EXISTS content (
+    // 2. Franchises (Parent Table)
+    // Represents the "Show", "Movie", or "Game" entity
+    db.run(`CREATE TABLE IF NOT EXISTS franchises (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title TEXT,
-        category TEXT,
-        difficulty INTEGER DEFAULT 1,
-        video_path TEXT,
-        image_char_path TEXT,
-        image_banner_path TEXT,
-        answer_quote TEXT,
-        answer_char TEXT,
-        stop_timestamp REAL
+        category TEXT, -- 'movie', 'series', 'game'
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
-    // 3. Tags Table
+    // 3. Questions (Child Table)
+    // Represents a specific gameplay item linked to a franchise
+    db.run(`CREATE TABLE IF NOT EXISTS questions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        franchise_id INTEGER,
+        type TEXT, -- 'quote', 'character', 'banner'
+        media_path TEXT, -- The video or image file
+        answer TEXT, -- The correct answer string
+        difficulty INTEGER DEFAULT 1,
+        stop_time REAL, -- Only used for video/quote type
+        pixel_level REAL DEFAULT 1.0, -- Only used for character/banner type
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(franchise_id) REFERENCES franchises(id) ON DELETE CASCADE
+    )`);
+
+    // 4. Tags
     db.run(`CREATE TABLE IF NOT EXISTS tags (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT UNIQUE,
         weight REAL DEFAULT 1.0
     )`);
 
-    // 4. Content_Tags
-    db.run(`CREATE TABLE IF NOT EXISTS content_tags (
-        content_id INTEGER,
+    // 5. Question_Tags (Links tags to specific questions)
+    db.run(`CREATE TABLE IF NOT EXISTS question_tags (
+        question_id INTEGER,
         tag_id INTEGER,
-        FOREIGN KEY(content_id) REFERENCES content(id),
+        FOREIGN KEY(question_id) REFERENCES questions(id),
         FOREIGN KEY(tag_id) REFERENCES tags(id)
     )`);
 
-    // 5. User Activity
+    // 6. User Activity
     db.run(`CREATE TABLE IF NOT EXISTS user_activity (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,
-        content_id INTEGER,
-        mode TEXT,
+        question_id INTEGER,
         is_solved INTEGER DEFAULT 0,
         attempts INTEGER DEFAULT 0,
         hints_used INTEGER DEFAULT 0,
         time_taken INTEGER DEFAULT 0,
         last_played DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY(user_id) REFERENCES users(id),
-        FOREIGN KEY(content_id) REFERENCES content(id)
+        FOREIGN KEY(question_id) REFERENCES questions(id)
     )`);
 });
 

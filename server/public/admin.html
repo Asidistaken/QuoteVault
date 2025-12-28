@@ -8,352 +8,792 @@
     <link rel="stylesheet" href="css/styles.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
-        /* --- ADMIN SPECIFIC STYLES --- */
-        body {
-            background: var(--bg-color);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 40px 20px;
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+
+        /* --- ADMIN SPECIFIC OVERRIDES --- */
+        :root {
+            /* Define admin-specific vars or map to styles.css vars if needed */
+            --bg-panel: #121212;
+            --bg-input: #222;
+            --border-color: #333;
         }
 
-        .admin-container {
+        /* Override Body for Admin Layout constraints */
+        body {
+            /* Reusing --bg-color from styles.css */
+            background: var(--bg-color); 
+            height: 100vh; /* Lock height for dashboard feel */
+            overflow: hidden; 
+            padding: 20px;
+        }
+
+        /* SHARED TRANSITIONS (Extending styles.css) */
+        .sidebar, .main-stage, .meta-panel, 
+        .card, .form-input, .filter-chip, 
+        .btn-save, .type-btn, .btn-new, .btn-upload,
+        .slider-thumb, i, span, button {
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        /* LAYOUT GRID */
+        .admin-layout {
+            display: grid;
+            grid-template-columns: 280px 1fr 320px;
+            gap: 20px;
             width: 100%;
-            max-width: 1200px;
-            background: var(--card-bg);
-            border-radius: 24px;
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            padding: 40px;
+            height: 100%;
+            max-width: 1920px;
+            margin: 0 auto;
+        }
+
+        /* --- 1. SIDEBAR (Overrides styles.css .sidebar) --- */
+        .sidebar.admin-sidebar {
+            background: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
             display: flex;
             flex-direction: column;
-            gap: 30px;
+            padding: 24px;
+            /* Reset styles.css specific sidebar alignments */
+            align-items: stretch; 
+            justify-content: flex-start;
+            gap: 0;
         }
 
-        /* Header Area */
-        .admin-header {
+        .sidebar-header {
+            font-size: 0.8rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-muted);
+            margin-bottom: 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-            padding-bottom: 20px;
         }
 
-        .admin-title {
-            font-size: 1.8rem;
-            font-weight: 800;
+        /* Search */
+        .search-wrapper { position: relative; margin-bottom: 15px; }
+        .search-wrapper input {
+            width: 100%;
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
             color: white;
-            letter-spacing: 2px;
+            padding: 12px 12px 12px 40px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            outline: none;
         }
+        .search-wrapper input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(255,255,255,0.05); }
+        .search-wrapper i { position: absolute; left: 14px; top: 14px; color: #555; }
 
-        .admin-title span { color: var(--primary); }
-
-        /* Category Selector */
-        .category-select {
-            display: flex;
-            gap: 10px;
-            background: rgba(0,0,0,0.3);
-            padding: 5px;
-            border-radius: 12px;
+        /* Filter Chips - ICON ONLY */
+        .filter-row { 
+            display: flex; 
+            gap: 10px; 
+            margin-bottom: 20px; 
         }
-
-        .cat-btn {
-            background: transparent;
-            border: none;
+        .filter-chip {
+            flex: 1;
+            aspect-ratio: 1/1; /* Make them square */
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
             color: var(--text-muted);
-            padding: 8px 20px;
+            font-size: 1.1rem; /* Larger icon */
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .filter-chip:hover { color: white; background: #333; }
+        .filter-chip.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+        /* Content List */
+        .content-list {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            padding-right: 5px;
+            margin-bottom: 15px;
+        }
+        
+        .list-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            color: #ccc;
+            font-size: 0.9rem;
+            border: 1px solid transparent;
+        }
+        .list-item:hover { background: #1f1f1f; color: white; }
+        .list-item.active { background: rgba(255, 255, 255, 0.03); border-color: var(--primary); color: white; }
+        
+        .item-title {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 160px;
+            font-weight: 500;
+        }
+        .item-spacer { flex-grow: 1; margin: 0 10px; }
+        .item-icon { color: #555; font-size: 0.8rem; }
+        .list-item:hover .item-icon { color: var(--primary); }
+
+        .btn-new {
+            width: 100%;
+            background: transparent;
+            border: 1px dashed #444;
+            color: #888;
+            padding: 14px;
             border-radius: 8px;
             cursor: pointer;
             font-weight: 600;
-            transition: all 0.3s;
         }
+        .btn-new:hover { border-color: var(--primary); color: var(--primary); background: rgba(255,255,255,0.02); }
 
-        .cat-btn.active {
-            background: var(--primary);
-            color: white;
-            box-shadow: 0 0 15px var(--primary);
-        }
-
-        /* The Grid (Triad Layout) */
-        .upload-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 30px;
-        }
-
-        .upload-card {
-            background: rgba(255,255,255,0.02);
-            border-radius: 16px;
-            padding: 20px;
-            border: 1px solid rgba(255,255,255,0.05);
+        /* --- 2. MAIN STAGE --- */
+        .main-stage {
             display: flex;
             flex-direction: column;
-            gap: 15px;
+            gap: 20px;
+            padding: 0 10px;
+            overflow-y: auto;
         }
 
-        .card-label {
-            color: var(--text-muted);
-            font-size: 0.9rem;
+        /* Header */
+        .stage-header {
+            background: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            padding: 16px 24px;
+            border-radius: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo { font-weight: 900; font-size: 1.4rem; letter-spacing: -0.5px; }
+        .logo span { color: var(--primary); }
+
+        .type-toggles { display: flex; gap: 5px; background: var(--bg-input); padding: 5px; border-radius: 8px; }
+        .type-btn {
+            background: transparent;
+            border: none;
+            color: #777;
+            padding: 8px 20px;
+            border-radius: 6px;
+            font-size: 0.85rem;
             font-weight: 600;
+            cursor: pointer;
+        }
+        .type-btn:hover { color: #fff; }
+        .type-btn.active { background: var(--primary); color: white; }
+
+        /* Cards Grid */
+        .upload-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+
+        .card {
+            background: var(--card-bg); /* Using styles.css var */
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .card:hover { border-color: #444; }
+
+        .card-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
             text-transform: uppercase;
             letter-spacing: 1px;
+            font-weight: 700;
             text-align: center;
         }
 
-        /* Upload Zone (Dashed Box) */
-        .drop-zone {
+        /* Media Box */
+        .media-container {
             width: 100%;
-            aspect-ratio: 1/1; /* Square box */
-            border: 2px dashed rgba(255,255,255,0.2);
-            border-radius: 16px;
+            aspect-ratio: 16/9;
+            background: #000;
+            border: 1px solid #222;
+            border-radius: 10px;
+            position: relative;
+            overflow: hidden;
             display: flex;
-            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .media-container img, .media-container video, .media-container canvas {
+            width: 100%; height: 100%; object-fit: contain;
+        }
+        .placeholder-text { color: #444; font-size: 0.85rem; text-align: center; }
+        .placeholder-text i { font-size: 2rem; margin-bottom: 10px; display: block; opacity: 0.5; }
+
+        .btn-upload {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 36px;
+            height: 36px;
+            background: rgba(30, 30, 30, 0.9);
+            border: 1px solid #444;
+            border-radius: 8px;
+            color: white;
+            display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            transition: all 0.3s;
-            position: relative;
-            overflow: hidden;
-            background: rgba(0,0,0,0.2);
+            backdrop-filter: blur(4px);
+            z-index: 10;
         }
-
-        .drop-zone:hover {
-            border-color: var(--primary);
-            background: rgba(255,255,255,0.05);
-        }
-
-        .drop-zone i {
-            font-size: 3rem;
-            color: var(--text-muted);
-            margin-bottom: 10px;
-            z-index: 1;
-        }
-
-        .drop-zone p {
-            color: var(--text-muted);
-            font-size: 0.9rem;
-            z-index: 1;
-        }
-
-        /* Previews */
-        .preview-media {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover; /* Fills the square */
-            display: none;
-            z-index: 2;
-        }
+        .btn-upload:hover { background: var(--primary); border-color: var(--primary); }
 
         /* Inputs */
-        .admin-input {
+        .form-input {
             width: 100%;
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            color: white;
             padding: 12px;
             border-radius: 8px;
-            color: white;
             font-size: 0.9rem;
             outline: none;
-            transition: border-color 0.3s;
         }
+        .form-input:focus { border-color: var(--primary); }
 
-        .admin-input:focus {
-            border-color: var(--primary);
-        }
-
-        /* Timestamp specific layout */
-        .timestamp-group {
+        /* SLIDER & NUMBER INPUT */
+        .slider-container {
+            background: var(--bg-input);
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
             display: flex;
-            gap: 10px;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
             align-items: center;
-        }
-
-        .small-label {
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             color: var(--text-muted);
-            white-space: nowrap;
+            font-weight: 600;
+            text-transform: uppercase;
         }
-
-        /* Action Bar */
-        .action-bar {
+        .slider-row {
             display: flex;
-            justify-content: flex-end;
-            border-top: 1px solid rgba(255,255,255,0.1);
-            padding-top: 20px;
+            align-items: center;
+            gap: 10px;
+        }
+        input[type=range] {
+            flex: 1;
+            appearance: none;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: var(--primary);
+            cursor: pointer;
+            margin-top: -6px;
+            transition: transform 0.1s;
+        }
+        input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #444;
+            border-radius: 2px;
+        }
+        .slider-number {
+            width: 50px;
+            background: #111;
+            border: 1px solid #333;
+            color: white;
+            text-align: center;
+            padding: 4px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+        .slider-number:focus { border-color: var(--primary); outline: none; }
+
+
+        /* --- 3. META PANEL --- */
+        .meta-panel {
+            background: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
         }
 
-        .save-btn {
+        .tag-area { flex:1; display:flex; flex-direction:column; gap:10px; }
+        .tag-input-group { display: flex; gap: 8px; }
+        .tag-list { display: flex; flex-wrap: wrap; gap: 8px; align-content: flex-start; margin-top: 10px; }
+        
+        .tag-chip {
+            background: #222;
+            color: #ccc;
+            font-size: 0.8rem;
+            padding: 6px 10px;
+            border-radius: 6px;
+            border: 1px solid #333;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .tag-chip span { cursor: pointer; color: #666; font-size: 1.1em; }
+        .tag-chip span:hover { color: var(--primary); }
+
+        .btn-save {
             background: var(--primary);
             color: white;
             border: none;
-            padding: 12px 30px;
-            border-radius: 12px;
+            padding: 16px;
+            border-radius: 10px;
             font-size: 1rem;
-            font-weight: bold;
+            font-weight: 700;
             cursor: pointer;
+            width: 100%;
             display: flex;
             align-items: center;
-            gap: 10px;
-            transition: transform 0.2s;
+            justify-content: center;
+            gap: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
         }
+        .btn-save:hover { filter: brightness(1.15); transform: translateY(-2px); }
 
-        .save-btn:hover {
-            transform: scale(1.05);
-            box-shadow: 0 0 20px var(--primary);
-        }
-
-        /* Responsive Fix */
-        @media (max-width: 900px) {
-            .upload-grid {
-                grid-template-columns: 1fr;
-            }
-            .drop-zone {
-                aspect-ratio: 16/9; /* Wider on mobile */
-            }
-        }
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
     </style>
 </head>
 <body class="theme-movie">
-    <div class="admin-container">
-        <header class="admin-header">
-            <div class="admin-title">QUOTE<span>VAULT</span> ADMIN</div>
-            <div class="category-select">
-                <button class="cat-btn active" onclick="setAdminTheme('movie')">Movie</button>
-                <button class="cat-btn" onclick="setAdminTheme('series')">Series</button>
-                <button class="cat-btn" onclick="setAdminTheme('game')">Game</button>
-            </div>
-        </header>
 
-        <div class="upload-grid">
-            <div class="upload-card">
-                <div class="card-label">Quote Video</div>
-                <label class="drop-zone">
-                    <i class="fa-solid fa-cloud-arrow-up"></i>
-                    <p>Upload Video (.mp4)</p>
-                    <input type="file" accept="video/*" hidden onchange="previewFile(this, 'video')">
-                    <video class="preview-media" controls></video>
-                </label>
-                <div class="timestamp-group">
-                    <span class="small-label"><i class="fa-solid fa-stopwatch"></i> Stop At:</span>
-                    <input type="text" class="admin-input" placeholder="00:10" title="MM:SS">
+    <div class="admin-layout">
+        
+        <aside class="sidebar admin-sidebar">
+            <div class="sidebar-header">
+                Database
+                <i class="fa-solid fa-server"></i>
+            </div>
+            
+            <div class="search-wrapper">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="searchInput" placeholder="Search content..." onkeyup="searchContent()">
+            </div>
+
+            <div class="filter-row">
+                <div class="filter-chip active" onclick="filterList('all', this)" title="All">
+                    <i class="fa-solid fa-layer-group"></i>
                 </div>
-                <input type="text" class="admin-input" placeholder="Quote Answer (e.g. Say my name)">
+                <div class="filter-chip" onclick="filterList('movie', this)" title="Movies">
+                    <i class="fa-solid fa-film"></i>
+                </div>
+                <div class="filter-chip" onclick="filterList('series', this)" title="TV Series">
+                    <i class="fa-solid fa-tv"></i>
+                </div>
+                <div class="filter-chip" onclick="filterList('game', this)" title="Games">
+                    <i class="fa-solid fa-gamepad"></i>
+                </div>
             </div>
 
-            <div class="upload-card">
-                <div class="card-label">Character Image</div>
-                <label class="drop-zone">
-                    <i class="fa-solid fa-cloud-arrow-up"></i>
-                    <p>Upload Image (.png/jpg)</p>
-                    <input type="file" accept="image/*" hidden onchange="previewFile(this, 'image')">
-                    <img class="preview-media">
-                </label>
-                <input type="text" class="admin-input" placeholder="Character Name (e.g. Jesse Pinkman)">
-            </div>
+            <div class="content-list" id="contentList"></div>
 
-            <div class="upload-card">
-                <div class="card-label">Cover / Banner Image</div>
-                <label class="drop-zone">
-                    <i class="fa-solid fa-cloud-arrow-up"></i>
-                    <p>Upload Image (.png/jpg)</p>
-                    <input type="file" accept="image/*" hidden onchange="previewFile(this, 'image')">
-                    <img class="preview-media">
-                </label>
-                <input type="text" class="admin-input" placeholder="Content Name (e.g. Breaking Bad)">
-            </div>
-        </div>
-
-        <div class="action-bar">
-            <button class="save-btn" onclick="uploadContent()">
-                <i class="fa-solid fa-floppy-disk"></i> Save Content
+            <button class="btn-new" onclick="resetForm()">
+                <i class="fa-solid fa-plus"></i> Create New
             </button>
-        </div>
+        </aside>
+
+        <main class="main-stage">
+            <header class="stage-header">
+                <div class="logo">QUOTE<span>VAULT</span></div>
+                <div class="type-toggles">
+                    <button class="type-btn active" onclick="setCategory('movie')">Movie</button>
+                    <button class="type-btn" onclick="setCategory('series')">Series</button>
+                    <button class="type-btn" onclick="setCategory('game')">Game</button>
+                </div>
+            </header>
+
+            <input type="hidden" id="editContentId">
+
+            <div class="upload-grid">
+                
+                <div class="card">
+                    <div class="card-label">Quote Clip</div>
+                    <div class="media-container">
+                        <div class="placeholder-text" id="phVideo">
+                            <i class="fa-solid fa-film"></i> No Video Selected
+                        </div>
+                        <video id="vidPreview" controls style="display:none;"></video>
+                        <button class="btn-upload" onclick="document.getElementById('fileVideo').click()">
+                            <i class="fa-solid fa-upload"></i>
+                        </button>
+                    </div>
+                    <input type="file" id="fileVideo" accept="video/*" hidden onchange="handleVideo(this)">
+                    
+                    <input type="text" class="form-input" id="inpTime" placeholder="Stop Timestamp (e.g. 14.5)">
+                    <input type="text" class="form-input" id="inpQuote" placeholder="Correct Quote">
+                </div>
+
+                <div class="card">
+                    <div class="card-label">Character Image</div>
+                    <div class="media-container">
+                        <div class="placeholder-text" id="phChar">
+                            <i class="fa-regular fa-user"></i> No Image
+                        </div>
+                        <canvas id="cvChar" style="display:none;"></canvas>
+                        <img id="rawChar" style="display:none;">
+                        <button class="btn-upload" onclick="document.getElementById('fileChar').click()">
+                            <i class="fa-solid fa-upload"></i>
+                        </button>
+                    </div>
+                    <input type="file" id="fileChar" accept="image/*" hidden onchange="handleImage(this, 'rawChar', 'cvChar', 'phChar')">
+                    
+                    <div class="slider-container">
+                        <div class="slider-header">
+                            <span>Image Clarity</span>
+                            <i class="fa-solid fa-eye"></i>
+                        </div>
+                        <div class="slider-row">
+                            <input type="range" id="rngChar" min="1" max="100" value="100" 
+                                   oninput="syncPixelInputs('rngChar', 'numChar', 'rawChar', 'cvChar')">
+                            <input type="number" id="numChar" class="slider-number" min="1" max="100" value="100" 
+                                   oninput="syncPixelInputs('numChar', 'rngChar', 'rawChar', 'cvChar')">
+                        </div>
+                    </div>
+
+                    <input type="text" class="form-input" id="inpCharName" placeholder="Character Name">
+                </div>
+
+                <div class="card">
+                    <div class="card-label">Banner Image</div>
+                    <div class="media-container">
+                        <div class="placeholder-text" id="phBan">
+                            <i class="fa-regular fa-image"></i> No Image
+                        </div>
+                        <canvas id="cvBan" style="display:none;"></canvas>
+                        <img id="rawBan" style="display:none;">
+                        <button class="btn-upload" onclick="document.getElementById('fileBan').click()">
+                            <i class="fa-solid fa-upload"></i>
+                        </button>
+                    </div>
+                    <input type="file" id="fileBan" accept="image/*" hidden onchange="handleImage(this, 'rawBan', 'cvBan', 'phBan')">
+                    
+                    <div class="slider-container">
+                        <div class="slider-header">
+                            <span>Image Clarity</span>
+                            <i class="fa-solid fa-eye"></i>
+                        </div>
+                        <div class="slider-row">
+                            <input type="range" id="rngBan" min="1" max="100" value="100" 
+                                   oninput="syncPixelInputs('rngBan', 'numBan', 'rawBan', 'cvBan')">
+                            <input type="number" id="numBan" class="slider-number" min="1" max="100" value="100" 
+                                   oninput="syncPixelInputs('numBan', 'rngBan', 'rawBan', 'cvBan')">
+                        </div>
+                    </div>
+
+                    <input type="text" class="form-input" id="inpTitle" placeholder="Content Title">
+                </div>
+
+            </div>
+        </main>
+
+        <aside class="meta-panel">
+            <div class="tag-area">
+                <div class="card-label" style="text-align:left; margin-bottom:10px;">Tags & Genre</div>
+                <div class="tag-input-group">
+                    <input type="text" class="form-input" id="tagInput" list="tagListSuggestions" placeholder="Add tag...">
+                    <datalist id="tagListSuggestions"></datalist>
+                    <button class="btn-new" style="margin:0; width:50px; padding:0; display:flex; align-items:center; justify-content:center;" onclick="addTag()">
+                        <i class="fa-solid fa-plus"></i>
+                    </button>
+                </div>
+                <div class="tag-list" id="tagContainer"></div>
+            </div>
+
+            <button class="btn-save" id="btnSave" onclick="saveContent()">
+                <i class="fa-solid fa-floppy-disk"></i>
+                <span id="btnSaveText">Save Movie</span>
+            </button>
+        </aside>
+
     </div>
 
     <script>
-        // 1. Theme/Category Switcher
-        function setAdminTheme(theme) {
-            document.body.className = 'theme-' + theme;
-            document.querySelectorAll('.cat-btn').forEach(btn => {
-                btn.classList.remove('active');
-                if(btn.onclick.toString().includes(theme)) btn.classList.add('active');
-            });
-            currentCategory = theme;
-        }
-
-        // 2. File Preview Logic
-        function previewFile(input, type) {
-            const file = input.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            const previewEl = input.parentElement.querySelector('.preview-media');
-            reader.onload = function(e) {
-                previewEl.src = e.target.result;
-                previewEl.style.display = 'block';
-            }
-            reader.readAsDataURL(file);
-        }
-
+        let currentTags = [];
         let currentCategory = 'movie';
+        let currentFilter = 'all';
 
-        async function uploadContent() {
-            const formData = new FormData();
+        window.onload = () => {
+            searchContent();
+            loadTagSuggestions();
+        };
+
+        // --- 1. SEARCH & LIST ---
+        function filterList(type, el) {
+            currentFilter = type;
+            document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+            el.classList.add('active');
+            searchContent();
+        }
+
+        async function searchContent() {
+            const q = document.getElementById('searchInput').value;
+            const res = await fetch(`/api/admin/search?query=${q}&type=${currentFilter}`);
+            const data = await res.json();
+            const list = document.getElementById('contentList');
+            list.innerHTML = '';
+
+            data.forEach(item => {
+                let icon = 'fa-film';
+                if(item.category === 'series') icon = 'fa-tv';
+                if(item.category === 'game') icon = 'fa-gamepad';
+
+                const div = document.createElement('div');
+                div.className = 'list-item';
+                div.innerHTML = `
+                    <span class="item-title">${item.title}</span>
+                    <span class="item-spacer"></span>
+                    <i class="fa-solid ${icon} item-icon"></i>
+                `;
+                div.onclick = () => loadEdit(item);
+                list.appendChild(div);
+            });
+        }
+
+        // --- 2. CATEGORY & DYNAMIC BUTTON ---
+        function setCategory(cat) {
+            currentCategory = cat;
+            document.body.className = 'theme-' + cat;
+
+            // Update Toggle Buttons
+            document.querySelectorAll('.type-btn').forEach(b => {
+                b.classList.remove('active');
+                if(b.innerText.toLowerCase() === cat) b.classList.add('active');
+            });
+
+            // Update Dynamic Save Button Text
+            const textEl = document.getElementById('btnSaveText');
+            // Capitalize first letter
+            const displayCat = cat.charAt(0).toUpperCase() + cat.slice(1);
+            textEl.innerText = `Save ${displayCat}`;
+        }
+
+        // --- 3. ACCESSIBLE PIXELATION LOGIC ---
+        // Syncs Slider <-> Number Input
+        function syncPixelInputs(sourceId, targetId, rawId, cvId) {
+            const source = document.getElementById(sourceId);
+            const target = document.getElementById(targetId);
             
-            // Text Fields
-            formData.append('category', currentCategory);
-            formData.append('difficulty', 1);
-            formData.append('stop_timestamp', document.querySelector('input[placeholder="00:10"]').value); 
-            formData.append('answer_quote', document.querySelector('input[placeholder*="Quote Answer"]').value);
-            formData.append('answer_char', document.querySelector('input[placeholder*="Character Name"]').value);
-            formData.append('title', document.querySelector('input[placeholder*="Content Name"]').value);
+            let val = parseInt(source.value);
+            if(val > 100) val = 100;
+            if(val < 1) val = 1;
 
-            // Files
-            const vidFile = document.querySelector('input[accept="video/*"]').files[0];
-            const charFile = document.querySelectorAll('input[accept="image/*"]')[0].files[0];
-            const bannerFile = document.querySelectorAll('input[accept="image/*"]')[1].files[0];
+            // Update both inputs
+            source.value = val;
+            target.value = val;
 
-            if(vidFile) formData.append('video', vidFile);
-            if(charFile) formData.append('image_char', charFile);
-            if(bannerFile) formData.append('image_banner', bannerFile);
+            // Draw
+            drawPixelated(rawId, cvId, val / 100);
+        }
+
+        function drawPixelated(rawId, canvasId, level) {
+            const raw = document.getElementById(rawId);
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            
+            if(!raw.src) return;
+
+            canvas.width = raw.naturalWidth;
+            canvas.height = raw.naturalHeight;
+
+            if(level >= 1.0) {
+                ctx.drawImage(raw, 0, 0);
+            } else {
+                const w = canvas.width * level;
+                const h = canvas.height * level;
+                ctx.imageSmoothingEnabled = false;
+                ctx.drawImage(raw, 0, 0, w, h);
+                ctx.drawImage(canvas, 0, 0, w, h, 0, 0, canvas.width, canvas.height);
+            }
+        }
+
+        // --- 4. MEDIA HANDLING ---
+        function handleVideo(input) {
+            const f = input.files[0];
+            if(f) {
+                const v = document.getElementById('vidPreview');
+                v.src = URL.createObjectURL(f);
+                v.style.display='block';
+                document.getElementById('phVideo').style.display='none';
+            }
+        }
+
+        function handleImage(input, rawId, cvId, phId) {
+            const f = input.files[0];
+            if(f) {
+                const raw = document.getElementById(rawId);
+                raw.src = URL.createObjectURL(f);
+                raw.onload = () => {
+                    document.getElementById(phId).style.display='none';
+                    document.getElementById(cvId).style.display='block';
+                    
+                    // Trigger default 100% draw
+                    const sliderId = rawId.includes('Char') ? 'rngChar' : 'rngBan';
+                    const numId = rawId.includes('Char') ? 'numChar' : 'numBan';
+                    syncPixelInputs(sliderId, numId, rawId, cvId);
+                };
+            }
+        }
+
+        // --- 5. LOAD & SAVE ---
+        function loadEdit(item) {
+            resetForm();
+            document.getElementById('editContentId').value = item.id;
+            setCategory(item.category); // Triggers color & button text change
+            
+            document.getElementById('inpTitle').value = item.title;
+            document.getElementById('inpCharName').value = item.answer_char;
+            document.getElementById('inpQuote').value = item.answer_quote;
+            document.getElementById('inpTime').value = item.stop_timestamp;
+
+            if(item.video_path) {
+                const v = document.getElementById('vidPreview');
+                v.src = item.video_path;
+                v.style.display='block';
+                document.getElementById('phVideo').style.display='none';
+            }
+
+            const loadImg = (path, rawId, cvId, phId, sliderId, numId, level) => {
+                if(path) {
+                    const raw = document.getElementById(rawId);
+                    raw.src = path;
+                    raw.onload = () => {
+                        document.getElementById(phId).style.display='none';
+                        document.getElementById(cvId).style.display='block';
+                        
+                        // Set Inputs
+                        const intVal = Math.round((level || 1.0) * 100);
+                        document.getElementById(sliderId).value = intVal;
+                        document.getElementById(numId).value = intVal;
+                        
+                        drawPixelated(rawId, cvId, level || 1.0);
+                    }
+                }
+            };
+
+            loadImg(item.image_char_path, 'rawChar', 'cvChar', 'phChar', 'rngChar', 'numChar', item.char_pixel_level);
+            loadImg(item.image_banner_path, 'rawBan', 'cvBan', 'phBan', 'rngBan', 'numBan', item.banner_pixel_level);
+
+            currentTags = item.tags || [];
+            renderTags();
+        }
+
+        function resetForm() {
+            document.getElementById('editContentId').value = '';
+            document.querySelectorAll('.form-input').forEach(i => i.value='');
+            document.querySelectorAll('input[type="file"]').forEach(i => i.value='');
+            document.querySelectorAll('video, canvas').forEach(e => e.style.display='none');
+            document.querySelectorAll('.placeholder-text').forEach(e => e.style.display='block');
+            document.querySelectorAll('img[id^="raw"]').forEach(i => i.removeAttribute('src'));
+            
+            // Reset Sliders
+            ['rngChar', 'numChar', 'rngBan', 'numBan'].forEach(id => document.getElementById(id).value = 100);
+
+            currentTags = [];
+            renderTags();
+        }
+
+        // --- 6. TAGS ---
+        async function loadTagSuggestions() {
+            const input = document.getElementById('tagInput');
+            input.addEventListener('input', async () => {
+                const res = await fetch(`/api/admin/tags?q=${input.value}`);
+                const tags = await res.json();
+                const dl = document.getElementById('tagListSuggestions');
+                dl.innerHTML = '';
+                tags.forEach(t => dl.appendChild(new Option(t)));
+            });
+        }
+
+        function addTag() {
+            const v = document.getElementById('tagInput').value.trim();
+            if(v && !currentTags.includes(v)) {
+                currentTags.push(v);
+                renderTags();
+                document.getElementById('tagInput').value = '';
+            }
+        }
+
+        function renderTags() {
+            const c = document.getElementById('tagContainer');
+            c.innerHTML = '';
+            currentTags.forEach(t => {
+                const tag = document.createElement('div');
+                tag.className = 'tag-chip';
+                tag.innerHTML = `${t} <span onclick="removeTag('${t}')">&times;</span>`;
+                c.appendChild(tag);
+            });
+        }
+        function removeTag(t) { currentTags = currentTags.filter(x => x!==t); renderTags(); }
+
+        // --- 7. SAVE ---
+        async function saveContent() {
+            const id = document.getElementById('editContentId').value;
+            const fd = new FormData();
+
+            fd.append('id', id);
+            fd.append('category', currentCategory);
+            fd.append('title', document.getElementById('inpTitle').value);
+            fd.append('answer_char', document.getElementById('inpCharName').value);
+            fd.append('answer_quote', document.getElementById('inpQuote').value);
+            fd.append('stop_timestamp', document.getElementById('inpTime').value);
+            
+            // Values from sliders (1-100 to 0.01-1.0)
+            fd.append('char_pixel_level', document.getElementById('rngChar').value / 100);
+            fd.append('banner_pixel_level', document.getElementById('rngBan').value / 100);
+            
+            fd.append('tags', JSON.stringify(currentTags));
+
+            const v = document.getElementById('fileVideo').files[0];
+            const c = document.getElementById('fileChar').files[0];
+            const b = document.getElementById('fileBan').files[0];
+
+            if(v) fd.append('video', v);
+            if(c) fd.append('image_char', c);
+            if(b) fd.append('image_banner', b);
+
+            if(!id && (!v || !c || !b)) {
+                return Swal.fire({ icon:'warning', title:'Missing Files', text:'New content requires video and images.', background:'#222', color:'#fff' });
+            }
 
             try {
-                const res = await fetch('/api/admin/content', {
-                    method: 'POST',
-                    body: formData
-                });
-                const data = await res.json();
-                
-                if(data.success) {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Uploaded!',
-                        text: 'Content saved successfully.',
-                        background: '#1a1a1a',
-                        color: '#fff'
-                    });
-                } else {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error',
-                        text: data.error,
-                        background: '#1a1a1a',
-                        color: '#fff'
-                    });
-                }
-            } catch(e) {
-                console.error(e);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Failed',
-                    text: 'Upload failed due to server error.',
-                    background: '#1a1a1a',
-                    color: '#fff'
-                });
+                const res = await fetch('/api/admin/content', { method:'POST', body:fd });
+                const d = await res.json();
+                if(d.success) {
+                    Swal.fire({ icon:'success', title:'Saved', showConfirmButton:false, timer:1000, background:'#222', color:'#fff' });
+                    searchContent();
+                    if(!id) resetForm();
+                } else throw new Error(d.error);
+            } catch(e) { 
+                Swal.fire({ icon:'error', title:'Error', text:e.message, background:'#222', color:'#fff' }); 
             }
         }
     </script>
