@@ -1,4 +1,3 @@
-// server.js
 const express = require('express');
 const session = require('express-session');
 const bcrypt = require('bcrypt');
@@ -23,6 +22,7 @@ app.use(session({
     cookie: { maxAge: 24 * 60 * 60 * 1000 }
 }));
 
+// --- MULTER STORAGE ---
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         cb(null, 'public/uploads/');
@@ -32,7 +32,11 @@ const storage = multer.diskStorage({
         cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
     }
 });
+
+// FIX 1: Define upload before using it
 const upload = multer({ storage: storage });
+// FIX 2: Create the middleware to accept ANY files (for multi-clip support)
+const uploadAny = upload.any();
 
 // --- HELPER: DELETE FILE ---
 const deleteFile = (relativePath) => {
@@ -85,7 +89,7 @@ app.post('/api/signup', upload.single('avatar'), async (req, res) => {
         });
 
         if (existingUser) {
-            if (req.file) deleteFile(avatarPath); // Cleanup uploaded file if duplicate
+            if (req.file) deleteFile(avatarPath); 
             if (existingUser.email === email) return res.status(400).json({ error: "Email already exists" });
             if (existingUser.username === nickname) return res.status(400).json({ error: "Nickname already taken" });
         }
@@ -133,7 +137,7 @@ app.get('/api/admin/search', (req, res) => {
     if (!req.session.userId || !req.session.isAdmin) return res.status(403).json({ error: "Access Denied" });
     
     const { query, type } = req.query;
-    let sql = `SELECT * FROM content WHERE title LIKE ?`;
+    let sql = `SELECT * FROM franchises WHERE title LIKE ?`;
     let params = [`%${query}%`];
 
     if (type && type !== 'all') {
@@ -143,23 +147,29 @@ app.get('/api/admin/search', (req, res) => {
     
     sql += ` ORDER BY id DESC LIMIT 20`;
 
-    db.all(sql, params, async (err, rows) => {
+    db.all(sql, params, async (err, franchiseRows) => {
         if (err) return res.status(500).json({ error: err.message });
         
-        const rowsWithTags = await Promise.all(rows.map(async (row) => {
+        const fullContent = await Promise.all(franchiseRows.map(async (f) => {
             const tags = await new Promise((resolve) => {
-                db.all(`
-                    SELECT t.name FROM tags t
-                    JOIN content_tags ct ON ct.tag_id = t.id
-                    WHERE ct.content_id = ?
-                `, [row.id], (err, tRows) => {
-                    resolve(tRows ? tRows.map(t => t.name) : []);
-                });
+                db.all(`SELECT t.name FROM tags t JOIN franchise_tags ft ON ft.tag_id = t.id WHERE ft.franchise_id = ?`, [f.id], (e, r) => resolve(r ? r.map(x=>x.name) : []));
             });
-            return { ...row, tags };
+
+            // FIX: Return raw questions array so frontend gets IDs
+            const questions = await new Promise((resolve) => {
+                db.all(`SELECT * FROM questions WHERE franchise_id = ?`, [f.id], (e, r) => resolve(r || []));
+            });
+
+            return {
+                id: f.id,
+                title: f.title,
+                category: f.category,
+                tags: tags,
+                questions: questions // Returning the list lets the frontend load multiple clips
+            };
         }));
 
-        res.json(rowsWithTags);
+        res.json(fullContent);
     });
 });
 
@@ -172,171 +182,210 @@ app.get('/api/admin/tags', (req, res) => {
 });
 
 // --- ROUTES: ADMIN (UPLOAD/UPDATE CONTENT) ---
-const uploadFields = upload.fields([
-    { name: 'video', maxCount: 1 },
-    { name: 'image_char', maxCount: 1 },
-    { name: 'image_banner', maxCount: 1 }
-]);
-
-app.post('/api/admin/content', uploadFields, async (req, res) => {
+app.post('/api/admin/content', uploadAny, async (req, res) => {
     if (!req.session.userId || !req.session.isAdmin) {
-        return res.status(403).json({ error: "Access Denied: Admins Only" });
+        return res.status(403).json({ error: "Access Denied" });
     }
-    
-    const { 
-        id, title, category, difficulty, 
-        answer_quote, answer_char, stop_timestamp,
-        char_pixel_level, banner_pixel_level,
-        tags
-    } = req.body;
 
-    const handleTags = async (contentId, tagString) => {
+    const { id, title, category, tags } = req.body;
+    const files = req.files || [];
+
+    // Helper: Manage Tags
+    const handleTags = async (franchiseId, tagString) => {
         if (!tagString) return;
         let tagList = [];
         try { tagList = JSON.parse(tagString); } catch(e) {}
         
-        await new Promise(r => db.run(`DELETE FROM content_tags WHERE content_id = ?`, [contentId], r));
-
+        await new Promise(r => db.run(`DELETE FROM franchise_tags WHERE franchise_id = ?`, [franchiseId], r));
+        
         for (const tagName of tagList) {
-            const cleanTag = tagName.trim();
-            if(!cleanTag) continue;
-
-            let tagId = await new Promise((resolve) => {
-                db.get(`SELECT id FROM tags WHERE name = ?`, [cleanTag], (err, row) => {
+            const clean = tagName.trim();
+            if(!clean) continue;
+            let tagId = await new Promise(resolve => {
+                db.get(`SELECT id FROM tags WHERE name = ?`, [clean], (err, row) => {
                     if(row) resolve(row.id);
-                    else {
-                        db.run(`INSERT INTO tags (name) VALUES (?)`, [cleanTag], function(err) {
-                            resolve(this.lastID);
-                        });
-                    }
+                    else db.run(`INSERT INTO tags (name) VALUES (?)`, [clean], function(){ resolve(this.lastID); });
                 });
             });
-            db.run(`INSERT INTO content_tags (content_id, tag_id) VALUES (?, ?)`, [contentId, tagId]);
+            db.run(`INSERT INTO franchise_tags (franchise_id, tag_id) VALUES (?, ?)`, [franchiseId, tagId]);
         }
     };
 
-    try {
-        if (id) {
-            // --- UPDATE EXISTING CONTENT ---
-            // 1. Fetch old data to get file paths
-            db.get(`SELECT * FROM content WHERE id = ?`, [id], (err, row) => {
-                if (err || !row) return res.status(404).json({ error: "Content not found" });
-
-                let updateFields = [];
-                let updateParams = [];
-
-                updateFields.push("title = ?", "category = ?", "difficulty = ?", "answer_quote = ?", "answer_char = ?", "stop_timestamp = ?");
-                updateParams.push(title, category, difficulty, answer_quote, answer_char, stop_timestamp);
-                
-                updateFields.push("char_pixel_level = ?", "banner_pixel_level = ?");
-                updateParams.push(char_pixel_level || 1.0, banner_pixel_level || 1.0);
-
-                // Check and replace files (DELETE OLD FILES HERE)
-                if (req.files['video']) {
-                    deleteFile(row.video_path); // Delete old
-                    updateFields.push("video_path = ?");
-                    updateParams.push('uploads/' + req.files['video'][0].filename);
-                }
-                if (req.files['image_char']) {
-                    deleteFile(row.image_char_path); // Delete old
-                    updateFields.push("image_char_path = ?");
-                    updateParams.push('uploads/' + req.files['image_char'][0].filename);
-                }
-                if (req.files['image_banner']) {
-                    deleteFile(row.image_banner_path); // Delete old
-                    updateFields.push("image_banner_path = ?");
-                    updateParams.push('uploads/' + req.files['image_banner'][0].filename);
-                }
-
-                updateParams.push(id);
-
-                const sql = `UPDATE content SET ${updateFields.join(', ')} WHERE id = ?`;
-                db.run(sql, updateParams, async function(err) {
-                    if (err) return res.status(500).json({ error: err.message });
-                    await handleTags(id, tags);
-                    res.json({ success: true, id: id, message: "Content Updated" });
-                });
-            });
-
-        } else {
-            // --- CREATE NEW CONTENT ---
-            // 1. Clean uploaded files if we fail later
-            const cleanupNewFiles = () => {
-                if(req.files['video']) deleteFile('uploads/' + req.files['video'][0].filename);
-                if(req.files['image_char']) deleteFile('uploads/' + req.files['image_char'][0].filename);
-                if(req.files['image_banner']) deleteFile('uploads/' + req.files['image_banner'][0].filename);
-            };
-
-            const videoPath = req.files['video'] ? 'uploads/' + req.files['video'][0].filename : null;
-            const charPath = req.files['image_char'] ? 'uploads/' + req.files['image_char'][0].filename : null;
-            const bannerPath = req.files['image_banner'] ? 'uploads/' + req.files['image_banner'][0].filename : null;
-
-            if (!videoPath && !charPath && !bannerPath) {
-                 cleanupNewFiles();
-                 return res.status(400).json({ error: "At least one file is required." });
+    // Helper: Upsert Single Item
+    const upsertItem = (franchiseId, item) => {
+        return new Promise((resolve, reject) => {
+            const uploadedFile = files.find(f => f.fieldname === item.fileKey);
+            
+            // FIX: Separate Logic for Check to prevent SQLITE_RANGE error
+            let checkSql, checkParams;
+            if (item.dbId) {
+                checkSql = `SELECT * FROM questions WHERE id = ?`;
+                checkParams = [item.dbId];
+            } else {
+                checkSql = `SELECT 1 WHERE 0`;
+                checkParams = [];
             }
+            
+            db.get(checkSql, checkParams, (err, row) => {
+                if (err) return reject(err);
 
-            const sql = `INSERT INTO content (
-                title, category, difficulty, video_path, image_char_path, image_banner_path,
-                answer_quote, answer_char, stop_timestamp, char_pixel_level, banner_pixel_level
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+                let mediaPath = row ? row.media_path : null;
 
-            db.run(sql, [
-                title, category, difficulty, videoPath, charPath, bannerPath,
-                answer_quote, answer_char, stop_timestamp, 
-                char_pixel_level || 1.0, 
-                banner_pixel_level || 1.0
-            ], async function(err) {
-                if (err) {
-                    cleanupNewFiles();
-                    return res.status(500).json({ error: err.message });
+                if (uploadedFile) {
+                    if (row && row.media_path) deleteFile(row.media_path);
+                    mediaPath = 'uploads/' + uploadedFile.filename;
                 }
-                await handleTags(this.lastID, tags);
-                res.json({ success: true, id: this.lastID, message: "Content Created" });
+
+                // If user didn't type an answer, keep the old one (if exists)
+                const finalAnswer = item.answer || (row ? row.answer : '');
+                const finalStop = item.stop_time || (row ? row.stop_time : null);
+                const finalPixel = item.pixel_level || (row ? row.pixel_level : 1.0);
+
+                if (row) {
+                    // Update existing
+                    db.run(`UPDATE questions SET media_path=?, answer=?, stop_time=?, pixel_level=? WHERE id=?`, 
+                        [mediaPath, finalAnswer, finalStop, finalPixel, row.id], (err) => err ? reject(err) : resolve());
+                } else {
+                    // Insert new (only if there is media or file)
+                    if (!mediaPath && !uploadedFile) return resolve();
+                    db.run(`INSERT INTO questions (franchise_id, type, media_path, answer, stop_time, pixel_level) VALUES (?, ?, ?, ?, ?, ?)`,
+                        [franchiseId, item.type, mediaPath, finalAnswer, finalStop, finalPixel], (err) => err ? reject(err) : resolve());
+                }
+            });
+        });
+    };
+
+    try {
+        let franchiseId = id;
+
+        // 1. Create or Update Franchise Title/Category
+        if (id) {
+            await new Promise((resolve, reject) => {
+                db.run(`UPDATE franchises SET title = ?, category = ? WHERE id = ?`, [title, category, id], (err) => err ? reject(err) : resolve());
+            });
+        } else {
+            franchiseId = await new Promise((resolve, reject) => {
+                db.run(`INSERT INTO franchises (title, category) VALUES (?, ?)`, [title, category], function(err){ err ? reject(err) : resolve(this.lastID); });
             });
         }
+
+        // 2. Process Tags
+        await handleTags(franchiseId, tags);
+
+        // 3. Process All Content Items (Upsert: Update or Insert)
+        let incomingIds = []; // Keep track of IDs we just saved
+
+        if (req.body.contentItems) {
+            const items = JSON.parse(req.body.contentItems);
+            for (const item of items) {
+                await upsertItem(franchiseId, item);
+                // If it was an existing item (has an ID), add it to our "Keep List"
+                if (item.dbId) incomingIds.push(String(item.dbId));
+            }
+        }
+
+        // 4. CLEANUP: Delete items that exist in DB but were REMOVED from the screen
+        if (id) { // Only run this if we are editing an existing franchise
+            const existingQuestions = await new Promise(resolve => {
+                db.all('SELECT id, media_path FROM questions WHERE franchise_id = ?', [franchiseId], (err, rows) => resolve(rows || []));
+            });
+
+            // Compare DB items vs. Incoming items
+            for (const q of existingQuestions) {
+                // If the DB ID is NOT in the list of IDs we just saved...
+                if (!incomingIds.includes(String(q.id))) {
+                    console.log(`[Cleanup] Deleting removed question ID: ${q.id}`);
+                    
+                    // 1. Delete the actual file from the folder
+                    if (q.media_path) deleteFile(q.media_path);
+
+                    // 2. Delete the row from the database
+                    await new Promise(resolve => db.run('DELETE FROM questions WHERE id = ?', [q.id], resolve));
+                }
+            }
+        }
+
+        res.json({ success: true, message: "Saved Successfully" });
+
     } catch (e) {
         console.error(e);
-        res.status(500).json({ error: "Server Error" });
+        res.status(500).json({ error: e.message });
     }
 });
 
 // --- ROUTES: GAME LOGIC ---
 app.get('/api/content/random', (req, res) => {
     const category = req.query.category || 'movie';
-    db.get(`SELECT * FROM content WHERE category = ? ORDER BY RANDOM() LIMIT 1`, [category], (err, row) => {
+    
+    // 1. Pick a Random Franchise
+    db.get(`SELECT * FROM franchises WHERE category = ? ORDER BY RANDOM() LIMIT 1`, [category], (err, franchise) => {
         if (err) return res.status(500).json({ error: err.message });
-        res.json(row);
+        if (!franchise) return res.json(null);
+
+        // 2. Fetch associated questions
+        db.all(`SELECT * FROM questions WHERE franchise_id = ?`, [franchise.id], (err, questions) => {
+            if (err) return res.status(500).json({ error: err.message });
+
+            // FIX: Pick a random item if there are multiple clips
+            const pickRandom = (type) => {
+                const arr = questions.filter(q => q.type === type);
+                return arr.length > 0 ? arr[Math.floor(Math.random() * arr.length)] : {};
+            };
+
+            const quoteQ = pickRandom('quote');
+            const charQ = pickRandom('character');
+            const bannerQ = pickRandom('banner');
+
+            // 3. Bundle for Frontend
+            const responseData = {
+                id: franchise.id, 
+                title: franchise.title,
+                category: franchise.category,
+                video_path: quoteQ.media_path,
+                stop_timestamp: quoteQ.stop_time,
+                image_char_path: charQ.media_path,
+                char_pixel_level: charQ.pixel_level,
+                image_banner_path: bannerQ.media_path,
+                banner_pixel_level: bannerQ.pixel_level
+            };
+
+            res.json(responseData);
+        });
     });
 });
 
 app.post('/api/check-answer', (req, res) => {
-    if (!req.session.userId) return res.status(401).json({ error: "Not logged in" });
-
-    const { contentId, mode, userGuess, attempts, hints } = req.body;
+    // 1. We now receive 'timeTaken' from the frontend
+    const { contentId, mode, userGuess, attempts, hints, timeTaken } = req.body;
     
-    db.get(`SELECT * FROM content WHERE id = ?`, [contentId], (err, content) => {
-        if (!content) return res.status(404).json({ error: "Content not found" });
-
-        let isCorrect = false;
-        let correctAnswer = "";
+    db.get(`SELECT * FROM questions WHERE franchise_id = ? AND type = ?`, [contentId, mode], (err, question) => {
+        if (!question) return res.status(404).json({ error: "Question not found" });
 
         const cleanGuess = userGuess.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+        const cleanAnswer = question.answer.toLowerCase().replace(/[^a-z0-9]/g, '');
         
-        if (mode === 'quote') correctAnswer = content.answer_quote;
-        else if (mode === 'character') correctAnswer = content.answer_char;
-        else if (mode === 'banner') correctAnswer = content.title;
+        const isCorrect = cleanGuess === cleanAnswer;
 
-        const cleanAnswer = correctAnswer.toLowerCase().replace(/[^a-z0-9]/g, '');
-        isCorrect = cleanGuess === cleanAnswer;
+        // Save activity only if user is logged in
+        if (isCorrect && req.session.userId) {
+            // 2. Updated SQL to include 'time_taken' column
+            const sql = `INSERT INTO user_activity 
+                         (user_id, question_id, is_solved, attempts, hints_used, time_taken) 
+                         VALUES (?, ?, ?, ?, ?, ?)`;
+            
+            db.run(sql, [
+                req.session.userId, 
+                question.id, 
+                1, 
+                attempts, 
+                hints, 
+                timeTaken || 0 // Default to 0 if missing
+            ]);
 
-        if (isCorrect) {
-            db.run(`INSERT INTO user_activity (user_id, content_id, mode, is_solved, attempts, hints_used) VALUES (?, ?, ?, ?, ?, ?)`, 
-                [req.session.userId, contentId, mode, 1, attempts, hints]);
             db.run(`UPDATE users SET total_points = total_points + 100 WHERE id = ?`, [req.session.userId]);
         }
 
-        res.json({ correct: isCorrect, correctString: isCorrect ? correctAnswer : null });
+        res.json({ correct: isCorrect, correctString: isCorrect ? question.answer : null });
     });
 });
 
@@ -346,6 +395,7 @@ app.get('/api/image-proxy', async (req, res) => {
 
     try {
         const fullPath = path.join(__dirname, 'public', imgPath);
+        
         if (parseFloat(level) >= 1.0) return res.sendFile(fullPath);
 
         const image = await Jimp.read(fullPath);

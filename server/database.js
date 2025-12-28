@@ -52,12 +52,13 @@ db.serialize(() => {
         weight REAL DEFAULT 1.0
     )`);
 
-    // 5. Question_Tags (Links tags to specific questions)
-    db.run(`CREATE TABLE IF NOT EXISTS question_tags (
-        question_id INTEGER,
+    // 5. Franchise_Tags (Replaces Question_Tags)
+    // Links tags to the Franchise entity relationally
+    db.run(`CREATE TABLE IF NOT EXISTS franchise_tags (
+        franchise_id INTEGER,
         tag_id INTEGER,
-        FOREIGN KEY(question_id) REFERENCES questions(id),
-        FOREIGN KEY(tag_id) REFERENCES tags(id)
+        FOREIGN KEY(franchise_id) REFERENCES franchises(id) ON DELETE CASCADE,
+        FOREIGN KEY(tag_id) REFERENCES tags(id) ON DELETE CASCADE
     )`);
 
     // 6. User Activity
