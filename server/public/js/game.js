@@ -5,53 +5,68 @@ let currentCategory = 'movie';
 window.currentMode = 'quote'; 
 window.stopTimestamp = 0;
 let currentContentId = null; 
-let startTime = Date.now(); // Track when the question started
+let startTime = Date.now(); 
 
-// Store current content data
+// FIX: Added 'id' field to store specific Question IDs
 let currentData = {
-    quote: { solved: false, points: POINTS_BASE, attempts: 0, hintsUsed: 0 },
-    character: { solved: false, level: 0.02, points: POINTS_BASE, attempts: 0, hintsUsed: 0 },
-    banner: { solved: false, level: 0.02, points: POINTS_BASE, attempts: 0, hintsUsed: 0 },
+    quote: { id: null, solved: false, points: POINTS_BASE, attempts: 0, hintsUsed: 0 },
+    character: { id: null, solved: false, level: 0.02, points: POINTS_BASE, attempts: 0, hintsUsed: 0 },
+    banner: { id: null, solved: false, level: 0.02, points: POINTS_BASE, attempts: 0, hintsUsed: 0 },
     title: "",
     stopTime: 0
 };
 
-const charImg = document.getElementById('char-img');
-const bannerImg = document.getElementById('banner-img');
-const answerInput = document.querySelector('.answer-input');
-const submitBtn = document.querySelector('.submit-btn');
+let charImg, bannerImg, answerInput, submitBtn;
 
 /* --- INITIALIZATION --- */
 window.addEventListener('DOMContentLoaded', () => {
+    charImg = document.getElementById('char-img');
+    bannerImg = document.getElementById('banner-img');
+    answerInput = document.querySelector('.answer-input');
+    submitBtn = document.querySelector('.submit-btn');
+
+    if (!charImg || !bannerImg || !answerInput || !submitBtn) {
+        return; 
+    }
+
     loadCategoryContent('movie');
     
     submitBtn.addEventListener('click', checkAnswer);
     answerInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') checkAnswer();
     });
+
+    const vidEl = document.getElementById('clip');
+    if (vidEl) {
+        vidEl.addEventListener('timeupdate', () => {
+            if (!currentData || currentData.quote.solved) return;
+            if (!vidEl.paused && vidEl.currentTime >= window.stopTimestamp) {
+                vidEl.pause();
+                vidEl.currentTime = window.stopTimestamp;
+            }
+        });
+    }
 });
 
 /* --- CORE FUNCTIONS --- */
 window.loadCategoryContent = function(category) {
     currentCategory = category;
-    
-    // 1. Reset Timer
     startTime = Date.now();
 
-    // 2. Clear Old Content
-    document.getElementById('char-img').src = ''; 
-    document.getElementById('banner-img').src = '';
+    if(charImg) charImg.src = ''; 
+    if(bannerImg) bannerImg.src = '';
+    
     const videoEl = document.getElementById('clip');
-    videoEl.src = '';
+    if(videoEl) videoEl.src = '';
     
-    // Reset Video Player Overlay
-    document.querySelector('.video-wrapper').classList.remove('playing');
+    const videoWrapper = document.querySelector('.video-wrapper');
+    if(videoWrapper) videoWrapper.classList.remove('playing');
     
-    // Reset Data State
+    // Reset Data
     currentData = {
-        quote: { solved: false, points: POINTS_BASE, attempts: 0, hintsUsed: 0 },
-        character: { solved: false, level: 0.02, points: POINTS_BASE, attempts: 0, hintsUsed: 0 },
-        banner: { solved: false, level: 0.02, points: POINTS_BASE, attempts: 0, hintsUsed: 0 },
+        quote: { id: null, solved: false, points: POINTS_BASE, attempts: 0, hintsUsed: 0 },
+        character: { id: null, solved: false, level: 0.02, points: POINTS_BASE, attempts: 0, hintsUsed: 0 },
+        banner: { id: null, solved: false, level: 0.02, points: POINTS_BASE, attempts: 0, hintsUsed: 0 },
         title: "",
         stopTime: 0
     };
@@ -71,14 +86,19 @@ window.loadCategoryContent = function(category) {
             currentData.title = data.title;
             currentData.stopTime = data.stop_timestamp;
             
+            // FIX: Save specific Question IDs
+            currentData.quote.id = data.quote_id;
+            currentData.character.id = data.char_id;
+            currentData.banner.id = data.banner_id;
+
             if(data.char_pixel_level) currentData.character.level = data.char_pixel_level;
             if(data.banner_pixel_level) currentData.banner.level = data.banner_pixel_level;
 
-            videoEl.src = data.video_path || ''; 
+            if(videoEl) videoEl.src = data.video_path || ''; 
             window.stopTimestamp = data.stop_timestamp || 0;
             
-            charImg.dataset.src = data.image_char_path || '';
-            bannerImg.dataset.src = data.image_banner_path || '';
+            if(charImg) charImg.dataset.src = data.image_char_path || '';
+            if(bannerImg) bannerImg.dataset.src = data.image_banner_path || '';
 
             window.updateInputState();
             renderImages();
@@ -87,6 +107,8 @@ window.loadCategoryContent = function(category) {
 };
 
 window.updateInputState = function() {
+    if(!answerInput) return;
+
     const state = currentData[window.currentMode];
     answerInput.classList.remove('correct', 'wrong', 'shake');
     answerInput.value = '';
@@ -104,12 +126,12 @@ function renderImages() {
     const charState = currentData.character;
     const bannerState = currentData.banner;
 
-    if(charImg.dataset.src) {
+    if(charImg && charImg.dataset.src) {
         const url = `/api/image-proxy?path=${encodeURIComponent(charImg.dataset.src)}&level=${charState.solved ? 1.0 : charState.level}&t=${Date.now()}`;
         charImg.src = url;
     }
     
-    if(bannerImg.dataset.src) {
+    if(bannerImg && bannerImg.dataset.src) {
         const url = `/api/image-proxy?path=${encodeURIComponent(bannerImg.dataset.src)}&level=${bannerState.solved ? 1.0 : bannerState.level}&t=${Date.now()}`;
         bannerImg.src = url;
     }
@@ -117,6 +139,8 @@ function renderImages() {
 
 /* --- ANSWER CHECKING --- */
 function checkAnswer() {
+    if(!answerInput) return;
+
     const mode = window.currentMode;
     const state = currentData[mode];
     if (state.solved) return;
@@ -124,21 +148,19 @@ function checkAnswer() {
     const userGuess = answerInput.value;
     if (!userGuess) return;
 
-    // Calculate Time Taken (Seconds)
     const timeTaken = Math.round((Date.now() - startTime) / 1000);
-
     state.attempts++;
 
+    // FIX: Send specific Question ID (state.id)
     fetch('/api/check-answer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            contentId: currentContentId,
-            mode: mode,
+            questionId: state.id, // Use the specific ID we saved earlier
             userGuess: userGuess,
             attempts: state.attempts, 
             hints: state.hintsUsed,
-            timeTaken: timeTaken // Send the time
+            timeTaken: timeTaken
         })
     })
     .then(res => res.json())
@@ -151,8 +173,11 @@ function checkAnswer() {
             
             if (mode === 'quote') {
                 const v = document.getElementById('clip');
-                v.play();
-                document.querySelector('.video-wrapper').classList.add('playing');
+                if(v) {
+                    v.play();
+                    const vw = document.querySelector('.video-wrapper');
+                    if(vw) vw.classList.add('playing');
+                }
             }
         } else {
             answerInput.classList.add('shake', 'wrong');
@@ -162,7 +187,6 @@ function checkAnswer() {
     });
 }
 
-/* --- HINT LOGIC --- */
 window.revealHint = function(isAuto = false) {
     const state = currentData[window.currentMode];
     if (state.solved) return;
@@ -174,14 +198,3 @@ window.revealHint = function(isAuto = false) {
         renderImages();
     }
 };
-
-const vidEl = document.getElementById('clip');
-if (vidEl) {
-    vidEl.addEventListener('timeupdate', () => {
-        if (!currentData || currentData.quote.solved) return;
-        if (!vidEl.paused && vidEl.currentTime >= window.stopTimestamp) {
-            vidEl.pause();
-            vidEl.currentTime = window.stopTimestamp;
-        }
-    });
-}

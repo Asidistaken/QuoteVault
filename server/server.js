@@ -33,9 +33,7 @@ const storage = multer.diskStorage({
     }
 });
 
-// FIX 1: Define upload before using it
 const upload = multer({ storage: storage });
-// FIX 2: Create the middleware to accept ANY files (for multi-clip support)
 const uploadAny = upload.any();
 
 // --- HELPER: DELETE FILE ---
@@ -120,7 +118,10 @@ app.post('/api/login', (req, res) => {
         if (match) {
             req.session.userId = user.id;
             req.session.isAdmin = user.is_admin; 
-            res.json({ success: true });
+            req.session.save((err) => {
+                if (err) return res.status(500).json({ error: "Session Error" });
+                res.json({ success: true });
+            });
         } else {
             res.status(401).json({ error: "Invalid password" });
         }
@@ -155,7 +156,6 @@ app.get('/api/admin/search', (req, res) => {
                 db.all(`SELECT t.name FROM tags t JOIN franchise_tags ft ON ft.tag_id = t.id WHERE ft.franchise_id = ?`, [f.id], (e, r) => resolve(r ? r.map(x=>x.name) : []));
             });
 
-            // FIX: Return raw questions array so frontend gets IDs
             const questions = await new Promise((resolve) => {
                 db.all(`SELECT * FROM questions WHERE franchise_id = ?`, [f.id], (e, r) => resolve(r || []));
             });
@@ -165,7 +165,7 @@ app.get('/api/admin/search', (req, res) => {
                 title: f.title,
                 category: f.category,
                 tags: tags,
-                questions: questions // Returning the list lets the frontend load multiple clips
+                questions: questions
             };
         }));
 
@@ -190,7 +190,6 @@ app.post('/api/admin/content', uploadAny, async (req, res) => {
     const { id, title, category, tags } = req.body;
     const files = req.files || [];
 
-    // Helper: Manage Tags
     const handleTags = async (franchiseId, tagString) => {
         if (!tagString) return;
         let tagList = [];
@@ -211,12 +210,10 @@ app.post('/api/admin/content', uploadAny, async (req, res) => {
         }
     };
 
-    // Helper: Upsert Single Item
     const upsertItem = (franchiseId, item) => {
         return new Promise((resolve, reject) => {
             const uploadedFile = files.find(f => f.fieldname === item.fileKey);
             
-            // FIX: Separate Logic for Check to prevent SQLITE_RANGE error
             let checkSql, checkParams;
             if (item.dbId) {
                 checkSql = `SELECT * FROM questions WHERE id = ?`;
@@ -236,17 +233,14 @@ app.post('/api/admin/content', uploadAny, async (req, res) => {
                     mediaPath = 'uploads/' + uploadedFile.filename;
                 }
 
-                // If user didn't type an answer, keep the old one (if exists)
                 const finalAnswer = item.answer || (row ? row.answer : '');
                 const finalStop = item.stop_time || (row ? row.stop_time : null);
                 const finalPixel = item.pixel_level || (row ? row.pixel_level : 1.0);
 
                 if (row) {
-                    // Update existing
                     db.run(`UPDATE questions SET media_path=?, answer=?, stop_time=?, pixel_level=? WHERE id=?`, 
                         [mediaPath, finalAnswer, finalStop, finalPixel, row.id], (err) => err ? reject(err) : resolve());
                 } else {
-                    // Insert new (only if there is media or file)
                     if (!mediaPath && !uploadedFile) return resolve();
                     db.run(`INSERT INTO questions (franchise_id, type, media_path, answer, stop_time, pixel_level) VALUES (?, ?, ?, ?, ?, ?)`,
                         [franchiseId, item.type, mediaPath, finalAnswer, finalStop, finalPixel], (err) => err ? reject(err) : resolve());
@@ -258,7 +252,6 @@ app.post('/api/admin/content', uploadAny, async (req, res) => {
     try {
         let franchiseId = id;
 
-        // 1. Create or Update Franchise Title/Category
         if (id) {
             await new Promise((resolve, reject) => {
                 db.run(`UPDATE franchises SET title = ?, category = ? WHERE id = ?`, [title, category, id], (err) => err ? reject(err) : resolve());
@@ -269,37 +262,28 @@ app.post('/api/admin/content', uploadAny, async (req, res) => {
             });
         }
 
-        // 2. Process Tags
         await handleTags(franchiseId, tags);
 
-        // 3. Process All Content Items (Upsert: Update or Insert)
-        let incomingIds = []; // Keep track of IDs we just saved
+        let existingQuestions = [];
+        if (id) {
+            existingQuestions = await new Promise(resolve => {
+                db.all('SELECT id, media_path FROM questions WHERE franchise_id = ?', [franchiseId], (err, rows) => resolve(rows || []));
+            });
+        }
 
+        let incomingIds = []; 
         if (req.body.contentItems) {
             const items = JSON.parse(req.body.contentItems);
             for (const item of items) {
                 await upsertItem(franchiseId, item);
-                // If it was an existing item (has an ID), add it to our "Keep List"
                 if (item.dbId) incomingIds.push(String(item.dbId));
             }
         }
 
-        // 4. CLEANUP: Delete items that exist in DB but were REMOVED from the screen
-        if (id) { // Only run this if we are editing an existing franchise
-            const existingQuestions = await new Promise(resolve => {
-                db.all('SELECT id, media_path FROM questions WHERE franchise_id = ?', [franchiseId], (err, rows) => resolve(rows || []));
-            });
-
-            // Compare DB items vs. Incoming items
+        if (id) { 
             for (const q of existingQuestions) {
-                // If the DB ID is NOT in the list of IDs we just saved...
                 if (!incomingIds.includes(String(q.id))) {
-                    console.log(`[Cleanup] Deleting removed question ID: ${q.id}`);
-                    
-                    // 1. Delete the actual file from the folder
                     if (q.media_path) deleteFile(q.media_path);
-
-                    // 2. Delete the row from the database
                     await new Promise(resolve => db.run('DELETE FROM questions WHERE id = ?', [q.id], resolve));
                 }
             }
@@ -317,16 +301,13 @@ app.post('/api/admin/content', uploadAny, async (req, res) => {
 app.get('/api/content/random', (req, res) => {
     const category = req.query.category || 'movie';
     
-    // 1. Pick a Random Franchise
     db.get(`SELECT * FROM franchises WHERE category = ? ORDER BY RANDOM() LIMIT 1`, [category], (err, franchise) => {
         if (err) return res.status(500).json({ error: err.message });
         if (!franchise) return res.json(null);
 
-        // 2. Fetch associated questions
         db.all(`SELECT * FROM questions WHERE franchise_id = ?`, [franchise.id], (err, questions) => {
             if (err) return res.status(500).json({ error: err.message });
 
-            // FIX: Pick a random item if there are multiple clips
             const pickRandom = (type) => {
                 const arr = questions.filter(q => q.type === type);
                 return arr.length > 0 ? arr[Math.floor(Math.random() * arr.length)] : {};
@@ -336,11 +317,17 @@ app.get('/api/content/random', (req, res) => {
             const charQ = pickRandom('character');
             const bannerQ = pickRandom('banner');
 
-            // 3. Bundle for Frontend
+            // FIX: Send specific Question IDs to client
             const responseData = {
                 id: franchise.id, 
                 title: franchise.title,
                 category: franchise.category,
+                
+                // Specific IDs
+                quote_id: quoteQ.id,
+                char_id: charQ.id,
+                banner_id: bannerQ.id,
+
                 video_path: quoteQ.media_path,
                 stop_timestamp: quoteQ.stop_time,
                 image_char_path: charQ.media_path,
@@ -355,10 +342,11 @@ app.get('/api/content/random', (req, res) => {
 });
 
 app.post('/api/check-answer', (req, res) => {
-    // 1. We now receive 'timeTaken' from the frontend
-    const { contentId, mode, userGuess, attempts, hints, timeTaken } = req.body;
+    // FIX: Receive specific questionId instead of generic franchiseId
+    const { questionId, userGuess, attempts, hints, timeTaken } = req.body;
     
-    db.get(`SELECT * FROM questions WHERE franchise_id = ? AND type = ?`, [contentId, mode], (err, question) => {
+    // FIX: Look up by specific question ID
+    db.get(`SELECT * FROM questions WHERE id = ?`, [questionId], (err, question) => {
         if (!question) return res.status(404).json({ error: "Question not found" });
 
         const cleanGuess = userGuess.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -366,9 +354,7 @@ app.post('/api/check-answer', (req, res) => {
         
         const isCorrect = cleanGuess === cleanAnswer;
 
-        // Save activity only if user is logged in
         if (isCorrect && req.session.userId) {
-            // 2. Updated SQL to include 'time_taken' column
             const sql = `INSERT INTO user_activity 
                          (user_id, question_id, is_solved, attempts, hints_used, time_taken) 
                          VALUES (?, ?, ?, ?, ?, ?)`;
@@ -379,7 +365,7 @@ app.post('/api/check-answer', (req, res) => {
                 1, 
                 attempts, 
                 hints, 
-                timeTaken || 0 // Default to 0 if missing
+                timeTaken || 0 
             ]);
 
             db.run(`UPDATE users SET total_points = total_points + 100 WHERE id = ?`, [req.session.userId]);
@@ -391,15 +377,43 @@ app.post('/api/check-answer', (req, res) => {
 
 app.get('/api/image-proxy', async (req, res) => {
     const { path: imgPath, level } = req.query;
-    if (!imgPath || !imgPath.startsWith('uploads/')) return res.status(403).send('Access Denied');
+    
+    // Security: Only allow files in the uploads directory
+    if (!imgPath || !imgPath.startsWith('uploads/')) {
+        return res.status(403).send('Access Denied');
+    }
 
     try {
+        let targetLevel = parseFloat(level);
+
+        // 1. Fetch 'pixel_level' from Database if not provided
+        if (isNaN(targetLevel)) {
+            const question = await new Promise((resolve, reject) => {
+                db.get(`SELECT pixel_level FROM questions WHERE media_path = ?`, [imgPath], (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row);
+                });
+            });
+            // Use DB value, or default to 0.02 (very blurry)
+            targetLevel = (question && question.pixel_level) ? question.pixel_level : 0.02;
+        }
+
         const fullPath = path.join(__dirname, 'public', imgPath);
         
-        if (parseFloat(level) >= 1.0) return res.sendFile(fullPath);
+        // 2. If Solved/Clear (>= 0.95), send original file immediately for speed
+        if (targetLevel >= 0.95) {
+            return res.sendFile(fullPath);
+        }
 
+        // 3. Process Pixelation
         const image = await Jimp.read(fullPath);
-        const pixelSize = Math.max(2, Math.floor(25 * (1 - parseFloat(level))));
+        
+        // FIX: Old formula capped blocks at 25px. 
+        // New formula matches Admin Panel logic: 
+        // If level is 0.02 (2%), we effectively need 1/0.02 = 50px blocks.
+        // We clamp it so it doesn't crash on 0.
+        const safeLevel = Math.max(0.01, targetLevel); 
+        const pixelSize = Math.max(2, Math.floor(1 / safeLevel));
         
         image
             .pixelate(pixelSize)
@@ -410,6 +424,7 @@ app.get('/api/image-proxy', async (req, res) => {
             });
 
     } catch (error) {
+        console.error("Image Proxy Error:", error);
         res.status(404).send('Image not found');
     }
 });

@@ -8,55 +8,10 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/styles.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <style>
-        /* Auth Button Styles */
-        .auth-widget {
-            position: absolute;
-            top: 30px;
-            right: 40px;
-            z-index: 100;
-        }
-
-        .btn-signin {
-            background: var(--primary);
-            color: white;
-            padding: 10px 25px;
-            border-radius: 30px;
-            text-decoration: none;
-            font-weight: bold;
-            box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
-            transition: transform 0.2s;
-            display: inline-block;
-        }
-
-        .btn-signin:hover {
-            transform: scale(1.05);
-        }
-
-        .user-profile {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            cursor: pointer;
-            background: rgba(0, 0, 0, 0.5);
-            padding: 5px 15px 5px 5px;
-            border-radius: 30px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .user-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            border: 2px solid var(--primary);
-            object-fit: cover;
-        }
-
-        .user-name {
-            font-weight: bold;
-            font-size: 0.9rem;
-        }
-    </style>
+    
+    <script src="js/player.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/mainpage.js"></script>
 </head>
 
 <body class="theme-movie">
@@ -139,83 +94,6 @@
             </main>
         </div>
     </div>
-
-    <script src="js/player.js"></script>
-    <script src="js/game.js"></script>
-    <script>
-        // Check Login Status on Load
-        fetch('/api/me')
-            .then(res => res.json())
-            .then(data => {
-                const container = document.getElementById('auth-container');
-                if (data.loggedIn) {
-                    const avatarSrc = data.user.avatar_url
-                        ? data.user.avatar_url
-                        : `https://ui-avatars.com/api/?name=${data.user.username}&background=random`;
-
-                    container.innerHTML = `
-                        <div class="user-profile" onclick="logout()">
-                            <img src="${avatarSrc}" class="user-avatar">
-                            <span class="user-name">${data.user.username}</span>
-                            <i class="fa-solid fa-sign-out-alt" style="margin-left:5px; font-size:0.8rem;"></i>
-                        </div>
-                    `;
-                } else {
-                    container.innerHTML = `<a href="login.html" class="btn-signin">Sign In</a>`;
-                }
-            });
-
-        function logout() {
-            fetch('/api/logout', { method: 'POST' }).then(() => window.location.reload());
-        }
-
-        // --- Layout Helpers ---
-        function setTheme(theme) {
-            document.body.className = 'theme-' + theme;
-            document.querySelectorAll('.category-sidebar .nav-btn').forEach(btn => {
-                btn.classList.toggle('active', btn.onclick.toString().includes(theme));
-            });
-            if (window.loadCategoryContent) window.loadCategoryContent(theme);
-        }
-
-        function setMode(modeName) {
-            // 1. Update Buttons (Safer Loop)
-            document.querySelectorAll('.mode-btn').forEach(btn => {
-                // Ignore the suggest button for styling
-                if (btn.classList.contains('suggest-btn')) return;
-
-                btn.classList.remove('active');
-
-                // SAFETY CHECK: Only check onclick if it actually exists
-                if (btn.onclick) {
-                    if (btn.onclick.toString().includes(modeName)) {
-                        btn.classList.add('active');
-                    }
-                }
-            });
-
-            // 2. Switch View
-            document.querySelectorAll('.content-view').forEach(view => {
-                view.classList.remove('active');
-            });
-            const targetView = document.getElementById('view-' + modeName);
-            if (targetView) targetView.classList.add('active');
-
-            // 3. Logic Updates
-            window.currentMode = modeName;
-
-            if (window.updateInputState) {
-                window.updateInputState();
-            }
-
-            // Pause video if leaving quote mode
-            const video = document.getElementById('clip');
-            if (modeName !== 'quote' && video && !video.paused) {
-                video.pause();
-                document.querySelector('.video-wrapper').classList.remove('playing');
-            }
-        }
-    </script>
 </body>
 
 </html>
