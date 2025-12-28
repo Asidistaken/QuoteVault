@@ -104,11 +104,15 @@ function renderImages() {
     const charState = currentData.character;
     const bannerState = currentData.banner;
 
-    if(charImg.dataset.src) 
-        applyPixelationToImage(charImg, charImg.dataset.src, charState.solved ? 1.0 : charState.level);
+    if(charImg.dataset.src) {
+        const url = `/api/image-proxy?path=${encodeURIComponent(charImg.dataset.src)}&level=${charState.solved ? 1.0 : charState.level}&t=${Date.now()}`;
+        charImg.src = url;
+    }
     
-    if(bannerImg.dataset.src) 
-        applyPixelationToImage(bannerImg, bannerImg.dataset.src, bannerState.solved ? 1.0 : bannerState.level);
+    if(bannerImg.dataset.src) {
+        const url = `/api/image-proxy?path=${encodeURIComponent(bannerImg.dataset.src)}&level=${bannerState.solved ? 1.0 : bannerState.level}&t=${Date.now()}`;
+        bannerImg.src = url;
+    }
 }
 
 /* --- ANSWER CHECKING --- */
@@ -174,27 +178,6 @@ window.revealHint = function(isAuto = false) {
     }
 };
 
-/* --- PIXELATION --- */
-function applyPixelationToImage(imgElement, src, factor) {
-    if (factor >= 0.99) { imgElement.src = src; return; }
-    const tempImg = new Image();
-    tempImg.src = src;
-    tempImg.onload = () => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        const w = Math.max(1, Math.floor(tempImg.width * factor));
-        const h = Math.max(1, Math.floor(tempImg.height * factor));
-        canvas.width = w; canvas.height = h;
-        ctx.drawImage(tempImg, 0, 0, w, h);
-        
-        const lg = document.createElement('canvas');
-        lg.width = tempImg.width; lg.height = tempImg.height;
-        const lctx = lg.getContext('2d');
-        lctx.imageSmoothingEnabled = false;
-        lctx.drawImage(canvas, 0, 0, tempImg.width, tempImg.height);
-        imgElement.src = lg.toDataURL();
-    };
-}
 
 const vidEl = document.getElementById('clip');
 if (vidEl) {

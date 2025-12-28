@@ -6,6 +6,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs'); // Added for file cleanup
 const db = require('./database');
+const Jimp = require('jimp');
 
 const app = express();
 const PORT = 3000;
@@ -207,6 +208,46 @@ app.post('/api/check-answer', (req, res) => {
 
         res.json({ correct: isCorrect, correctString: isCorrect ? correctAnswer : null });
     });
+});
+
+app.get('/api/image-proxy', async (req, res) => {
+    const { path: imgPath, level } = req.query;
+    
+    // Security: Prevent accessing files outside uploads
+    if (!imgPath || !imgPath.startsWith('uploads/')) {
+        return res.status(403).send('Access Denied');
+    }
+
+    try {
+        const fullPath = path.join(__dirname, 'public', imgPath);
+        
+        // If level is 1.0 (Solved), send original file (faster)
+        if (parseFloat(level) >= 1.0) {
+            return res.sendFile(fullPath);
+        }
+
+        // Otherwise, process it
+        const image = await Jimp.read(fullPath);
+        
+        // Pixelate logic: lower level = higher pixelation block size
+        // Example: level 0.1 => high pixelation, level 0.9 => low pixelation
+        // We invert the logic: 
+        // If level is 0.1 (hard), pixel size should be large (e.g., 20)
+        // If level is 0.9 (easy), pixel size should be small (e.g., 2)
+        const pixelSize = Math.max(2, Math.floor(20 * (1 - parseFloat(level))));
+        
+        image
+            .pixelate(pixelSize)
+            .getBuffer(Jimp.MIME_JPEG, (err, buffer) => {
+                if (err) throw err;
+                res.set('Content-Type', Jimp.MIME_JPEG);
+                res.send(buffer);
+            });
+
+    } catch (error) {
+        console.error(error);
+        res.status(404).send('Image not found');
+    }
 });
 
 app.listen(PORT, () => {

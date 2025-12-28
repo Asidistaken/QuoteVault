@@ -95,11 +95,31 @@
                         <div class="player-container">
                             <div class="video-wrapper">
                                 <video id="clip" playsinline>
-                                    <source src="" type="video/mp4">
                                 </video>
-                                <div class="play-hint"><i class="fa-solid fa-play"></i> Click to Play</div>
-                                <button id="restart-btn" class="restart-btn"><i
-                                        class="fa-solid fa-rotate-left"></i></button>
+
+                                <div class="play-hint">
+                                    <i class="fa-solid fa-play"></i> Click to Play
+                                </div>
+
+                                <button id="restart-btn" class="restart-btn" title="Replay">
+                                    <i class="fa-solid fa-rotate-left"></i>
+                                </button>
+                            </div>
+
+                            <div class="volume-container">
+                                <div class="volume-slider">
+                                    <div class="volume-percent">50%</div>
+
+                                    <div class="slider-track">
+                                        <div class="slider-fill"></div>
+                                        <div class="slider-thumb"></div>
+                                        <input id="volume" type="range" min="0" max="100" step="1" value="50">
+                                    </div>
+
+                                    <div class="volume-icon">
+                                        <i class="fa-solid fa-volume-high"></i>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -165,10 +185,10 @@
                 if (btn.classList.contains('suggest-btn')) return;
 
                 btn.classList.remove('active');
-                
+
                 // SAFETY CHECK: Only check onclick if it actually exists
                 if (btn.onclick) {
-                    if(btn.onclick.toString().includes(modeName)) {
+                    if (btn.onclick.toString().includes(modeName)) {
                         btn.classList.add('active');
                     }
                 }
@@ -179,11 +199,11 @@
                 view.classList.remove('active');
             });
             const targetView = document.getElementById('view-' + modeName);
-            if(targetView) targetView.classList.add('active');
+            if (targetView) targetView.classList.add('active');
 
             // 3. Logic Updates
             window.currentMode = modeName;
-            
+
             if (window.updateInputState) {
                 window.updateInputState();
             }
