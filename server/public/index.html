@@ -86,10 +86,16 @@
                     </div>
                 </div>
 
+                <div id="text-hint-container" class="text-hint-container"></div>
+
                 <div class="answer-section">
-                    <button class="hint-btn" onclick="revealHint()"><i class="fa-solid fa-lightbulb"></i></button>
+                    <button class="skip-btn" id="skip-btn" title="Skip Level"><i class="fa-solid fa-forward"></i></button>
+
+                    <button class="hint-btn" title="Hint" onclick="revealHint()"><i class="fa-solid fa-lightbulb"></i></button>
+                    
                     <input type="text" placeholder="Guess..." class="answer-input">
-                    <button class="submit-btn"><i class="fa-solid fa-paper-plane"></i></button>
+                    
+                    <button class="submit-btn" title="Submit"><i class="fa-solid fa-paper-plane"></i></button>
                 </div>
             </main>
         </div>

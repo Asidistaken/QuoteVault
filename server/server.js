@@ -13,10 +13,10 @@ const PORT = 3000;
 // --- MIDDLEWARE ---
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static('public')); 
+app.use(express.static('public'));
 
 app.use(session({
-    secret: 'quotevault_secret_key', 
+    secret: 'quotevault_secret_key',
     resave: false,
     saveUninitialized: false,
     cookie: { maxAge: 24 * 60 * 60 * 1000 }
@@ -57,7 +57,7 @@ app.get('/', (req, res) => {
 
 app.get('/admin', (req, res) => {
     if (!req.session.userId || !req.session.isAdmin) {
-        return res.redirect('/'); 
+        return res.redirect('/');
     }
     res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
@@ -87,15 +87,15 @@ app.post('/api/signup', upload.single('avatar'), async (req, res) => {
         });
 
         if (existingUser) {
-            if (req.file) deleteFile(avatarPath); 
+            if (req.file) deleteFile(avatarPath);
             if (existingUser.email === email) return res.status(400).json({ error: "Email already exists" });
             if (existingUser.username === nickname) return res.status(400).json({ error: "Nickname already taken" });
         }
 
         const hash = await bcrypt.hash(password, 10);
         const sql = `INSERT INTO users (email, password_hash, username, avatar_url) VALUES (?, ?, ?, ?)`;
-        
-        db.run(sql, [email, hash, nickname, avatarPath], function(err) {
+
+        db.run(sql, [email, hash, nickname, avatarPath], function (err) {
             if (err) {
                 if (req.file) deleteFile(avatarPath);
                 return res.status(500).json({ error: "Database error" });
@@ -117,7 +117,7 @@ app.post('/api/login', (req, res) => {
         const match = await bcrypt.compare(password, user.password_hash);
         if (match) {
             req.session.userId = user.id;
-            req.session.isAdmin = user.is_admin; 
+            req.session.isAdmin = user.is_admin;
             req.session.save((err) => {
                 if (err) return res.status(500).json({ error: "Session Error" });
                 res.json({ success: true });
@@ -136,7 +136,7 @@ app.post('/api/logout', (req, res) => {
 // --- ROUTES: ADMIN (SEARCH & TAGS) ---
 app.get('/api/admin/search', (req, res) => {
     if (!req.session.userId || !req.session.isAdmin) return res.status(403).json({ error: "Access Denied" });
-    
+
     const { query, type } = req.query;
     let sql = `SELECT * FROM franchises WHERE title LIKE ?`;
     let params = [`%${query}%`];
@@ -145,15 +145,15 @@ app.get('/api/admin/search', (req, res) => {
         sql += ` AND category = ?`;
         params.push(type);
     }
-    
+
     sql += ` ORDER BY id DESC LIMIT 20`;
 
     db.all(sql, params, async (err, franchiseRows) => {
         if (err) return res.status(500).json({ error: err.message });
-        
+
         const fullContent = await Promise.all(franchiseRows.map(async (f) => {
             const tags = await new Promise((resolve) => {
-                db.all(`SELECT t.name FROM tags t JOIN franchise_tags ft ON ft.tag_id = t.id WHERE ft.franchise_id = ?`, [f.id], (e, r) => resolve(r ? r.map(x=>x.name) : []));
+                db.all(`SELECT t.name FROM tags t JOIN franchise_tags ft ON ft.tag_id = t.id WHERE ft.franchise_id = ?`, [f.id], (e, r) => resolve(r ? r.map(x => x.name) : []));
             });
 
             const questions = await new Promise((resolve) => {
@@ -193,17 +193,17 @@ app.post('/api/admin/content', uploadAny, async (req, res) => {
     const handleTags = async (franchiseId, tagString) => {
         if (!tagString) return;
         let tagList = [];
-        try { tagList = JSON.parse(tagString); } catch(e) {}
-        
+        try { tagList = JSON.parse(tagString); } catch (e) { }
+
         await new Promise(r => db.run(`DELETE FROM franchise_tags WHERE franchise_id = ?`, [franchiseId], r));
-        
+
         for (const tagName of tagList) {
             const clean = tagName.trim();
-            if(!clean) continue;
+            if (!clean) continue;
             let tagId = await new Promise(resolve => {
                 db.get(`SELECT id FROM tags WHERE name = ?`, [clean], (err, row) => {
-                    if(row) resolve(row.id);
-                    else db.run(`INSERT INTO tags (name) VALUES (?)`, [clean], function(){ resolve(this.lastID); });
+                    if (row) resolve(row.id);
+                    else db.run(`INSERT INTO tags (name) VALUES (?)`, [clean], function () { resolve(this.lastID); });
                 });
             });
             db.run(`INSERT INTO franchise_tags (franchise_id, tag_id) VALUES (?, ?)`, [franchiseId, tagId]);
@@ -213,7 +213,7 @@ app.post('/api/admin/content', uploadAny, async (req, res) => {
     const upsertItem = (franchiseId, item) => {
         return new Promise((resolve, reject) => {
             const uploadedFile = files.find(f => f.fieldname === item.fileKey);
-            
+
             let checkSql, checkParams;
             if (item.dbId) {
                 checkSql = `SELECT * FROM questions WHERE id = ?`;
@@ -222,7 +222,7 @@ app.post('/api/admin/content', uploadAny, async (req, res) => {
                 checkSql = `SELECT 1 WHERE 0`;
                 checkParams = [];
             }
-            
+
             db.get(checkSql, checkParams, (err, row) => {
                 if (err) return reject(err);
 
@@ -238,7 +238,7 @@ app.post('/api/admin/content', uploadAny, async (req, res) => {
                 const finalPixel = item.pixel_level || (row ? row.pixel_level : 1.0);
 
                 if (row) {
-                    db.run(`UPDATE questions SET media_path=?, answer=?, stop_time=?, pixel_level=? WHERE id=?`, 
+                    db.run(`UPDATE questions SET media_path=?, answer=?, stop_time=?, pixel_level=? WHERE id=?`,
                         [mediaPath, finalAnswer, finalStop, finalPixel, row.id], (err) => err ? reject(err) : resolve());
                 } else {
                     if (!mediaPath && !uploadedFile) return resolve();
@@ -258,7 +258,7 @@ app.post('/api/admin/content', uploadAny, async (req, res) => {
             });
         } else {
             franchiseId = await new Promise((resolve, reject) => {
-                db.run(`INSERT INTO franchises (title, category) VALUES (?, ?)`, [title, category], function(err){ err ? reject(err) : resolve(this.lastID); });
+                db.run(`INSERT INTO franchises (title, category) VALUES (?, ?)`, [title, category], function (err) { err ? reject(err) : resolve(this.lastID); });
             });
         }
 
@@ -271,7 +271,7 @@ app.post('/api/admin/content', uploadAny, async (req, res) => {
             });
         }
 
-        let incomingIds = []; 
+        let incomingIds = [];
         if (req.body.contentItems) {
             const items = JSON.parse(req.body.contentItems);
             for (const item of items) {
@@ -280,7 +280,7 @@ app.post('/api/admin/content', uploadAny, async (req, res) => {
             }
         }
 
-        if (id) { 
+        if (id) {
             for (const q of existingQuestions) {
                 if (!incomingIds.includes(String(q.id))) {
                     if (q.media_path) deleteFile(q.media_path);
@@ -320,12 +320,12 @@ app.delete('/api/admin/franchise/:id', (req, res) => {
         db.serialize(() => {
             // Remove Tags association
             db.run('DELETE FROM franchise_tags WHERE franchise_id = ?', [franchiseId]);
-            
+
             // Remove Questions/Content
             db.run('DELETE FROM questions WHERE franchise_id = ?', [franchiseId]);
-            
+
             // Remove Franchise Entry
-            db.run('DELETE FROM franchises WHERE id = ?', [franchiseId], function(err) {
+            db.run('DELETE FROM franchises WHERE id = ?', [franchiseId], function (err) {
                 if (err) {
                     res.status(500).json({ error: "Database Delete Error" });
                 } else {
@@ -337,9 +337,10 @@ app.delete('/api/admin/franchise/:id', (req, res) => {
 });
 
 // --- ROUTES: GAME LOGIC ---
+/* --- ROUTES: GAME LOGIC --- */
 app.get('/api/content/random', (req, res) => {
     const category = req.query.category || 'movie';
-    
+
     db.get(`SELECT * FROM franchises WHERE category = ? ORDER BY RANDOM() LIMIT 1`, [category], (err, franchise) => {
         if (err) return res.status(500).json({ error: err.message });
         if (!franchise) return res.json(null);
@@ -356,16 +357,21 @@ app.get('/api/content/random', (req, res) => {
             const charQ = pickRandom('character');
             const bannerQ = pickRandom('banner');
 
-            // FIX: Send specific Question IDs to client
             const responseData = {
-                id: franchise.id, 
+                id: franchise.id,
                 title: franchise.title,
                 category: franchise.category,
-                
+
                 // Specific IDs
                 quote_id: quoteQ.id,
                 char_id: charQ.id,
                 banner_id: bannerQ.id,
+
+                // --- FIX: SEND SPECIFIC ANSWERS FOR ALL MODES ---
+                answer_quote: quoteQ.answer,
+                answer_char: charQ.answer,     // <--- Added this
+                answer_banner: bannerQ.answer, // <--- Added this
+                // ---------------------------------------------
 
                 video_path: quoteQ.media_path,
                 stop_timestamp: quoteQ.stop_time,
@@ -383,28 +389,28 @@ app.get('/api/content/random', (req, res) => {
 app.post('/api/check-answer', (req, res) => {
     // FIX: Receive specific questionId instead of generic franchiseId
     const { questionId, userGuess, attempts, hints, timeTaken } = req.body;
-    
+
     // FIX: Look up by specific question ID
     db.get(`SELECT * FROM questions WHERE id = ?`, [questionId], (err, question) => {
         if (!question) return res.status(404).json({ error: "Question not found" });
 
         const cleanGuess = userGuess.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
         const cleanAnswer = question.answer.toLowerCase().replace(/[^a-z0-9]/g, '');
-        
+
         const isCorrect = cleanGuess === cleanAnswer;
 
         if (isCorrect && req.session.userId) {
             const sql = `INSERT INTO user_activity 
                          (user_id, question_id, is_solved, attempts, hints_used, time_taken) 
                          VALUES (?, ?, ?, ?, ?, ?)`;
-            
+
             db.run(sql, [
-                req.session.userId, 
-                question.id, 
-                1, 
-                attempts, 
-                hints, 
-                timeTaken || 0 
+                req.session.userId,
+                question.id,
+                1,
+                attempts,
+                hints,
+                timeTaken || 0
             ]);
 
             db.run(`UPDATE users SET total_points = total_points + 100 WHERE id = ?`, [req.session.userId]);
@@ -414,10 +420,10 @@ app.post('/api/check-answer', (req, res) => {
     });
 });
 
+/* --- IMAGE PROXY ROUTE --- */
 app.get('/api/image-proxy', async (req, res) => {
     const { path: imgPath, level } = req.query;
-    
-    // Security: Only allow files in the uploads directory
+
     if (!imgPath || !imgPath.startsWith('uploads/')) {
         return res.status(403).send('Access Denied');
     }
@@ -425,7 +431,6 @@ app.get('/api/image-proxy', async (req, res) => {
     try {
         let targetLevel = parseFloat(level);
 
-        // 1. Fetch 'pixel_level' from Database if not provided
         if (isNaN(targetLevel)) {
             const question = await new Promise((resolve, reject) => {
                 db.get(`SELECT pixel_level FROM questions WHERE media_path = ?`, [imgPath], (err, row) => {
@@ -433,27 +438,30 @@ app.get('/api/image-proxy', async (req, res) => {
                     else resolve(row);
                 });
             });
-            // Use DB value, or default to 0.02 (very blurry)
             targetLevel = (question && question.pixel_level) ? question.pixel_level : 0.02;
         }
 
         const fullPath = path.join(__dirname, 'public', imgPath);
-        
-        // 2. If Solved/Clear (>= 0.95), send original file immediately for speed
+
+        // If solved or very high level, send original
         if (targetLevel >= 0.95) {
             return res.sendFile(fullPath);
         }
 
-        // 3. Process Pixelation
         const image = await Jimp.read(fullPath);
+
+        // --- FIX: SMOOTHER PIXELATION CURVE ---
+        // Old Formula: 1 / level (Caused drastic jumps)
+        // New Formula: Linear scaling from 50px down to 0px
         
-        // FIX: Old formula capped blocks at 25px. 
-        // New formula matches Admin Panel logic: 
-        // If level is 0.02 (2%), we effectively need 1/0.02 = 50px blocks.
-        // We clamp it so it doesn't crash on 0.
-        const safeLevel = Math.max(0.01, targetLevel); 
-        const pixelSize = Math.max(2, Math.floor(1 / safeLevel));
+        const MAX_BLOCK_SIZE = 50; // Maximum blur size in pixels
         
+        // Calculate block size: As level goes 0 -> 1, size goes 50 -> 0
+        let pixelSize = Math.floor(MAX_BLOCK_SIZE * (1.0 - targetLevel));
+        
+        // Ensure we don't go below 2px (Jimp crashes on 0 or 1 sometimes)
+        pixelSize = Math.max(2, pixelSize);
+
         image
             .pixelate(pixelSize)
             .getBuffer(Jimp.MIME_JPEG, (err, buffer) => {
