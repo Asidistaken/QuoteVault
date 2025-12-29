@@ -5,7 +5,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const db = require('./database');
-const Jimp = require('jimp');
+const sharp = require('sharp');
 
 const app = express();
 const PORT = 3000;
@@ -423,14 +423,11 @@ app.post('/api/check-answer', (req, res) => {
 /* --- IMAGE PROXY ROUTE --- */
 app.get('/api/image-proxy', async (req, res) => {
     const { path: imgPath, level } = req.query;
-
     if (!imgPath || !imgPath.startsWith('uploads/')) {
         return res.status(403).send('Access Denied');
     }
-
     try {
         let targetLevel = parseFloat(level);
-
         if (isNaN(targetLevel)) {
             const question = await new Promise((resolve, reject) => {
                 db.get(`SELECT pixel_level FROM questions WHERE media_path = ?`, [imgPath], (err, row) => {
@@ -440,36 +437,53 @@ app.get('/api/image-proxy', async (req, res) => {
             });
             targetLevel = (question && question.pixel_level) ? question.pixel_level : 0.02;
         }
-
         const fullPath = path.join(__dirname, 'public', imgPath);
-
+        
         // If solved or very high level, send original
         if (targetLevel >= 0.95) {
             return res.sendFile(fullPath);
         }
-
-        const image = await Jimp.read(fullPath);
-
-        // --- FIX: SMOOTHER PIXELATION CURVE ---
-        // Old Formula: 1 / level (Caused drastic jumps)
-        // New Formula: Linear scaling from 50px down to 0px
         
+        // --- MATCH JIMP'S EXACT FORMULA ---
         const MAX_BLOCK_SIZE = 50; // Maximum blur size in pixels
         
         // Calculate block size: As level goes 0 -> 1, size goes 50 -> 0
         let pixelSize = Math.floor(MAX_BLOCK_SIZE * (1.0 - targetLevel));
         
-        // Ensure we don't go below 2px (Jimp crashes on 0 or 1 sometimes)
+        // Ensure we don't go below 2px
         pixelSize = Math.max(2, pixelSize);
-
-        image
-            .pixelate(pixelSize)
-            .getBuffer(Jimp.MIME_JPEG, (err, buffer) => {
-                if (err) throw err;
-                res.set('Content-Type', Jimp.MIME_JPEG);
-                res.send(buffer);
-            });
-
+        
+        // Get original dimensions
+        const metadata = await sharp(fullPath).metadata();
+        const { width, height } = metadata;
+        
+        // Calculate reduced dimensions (number of pixel blocks)
+        const reducedWidth = Math.max(1, Math.round(width / pixelSize));
+        const reducedHeight = Math.max(1, Math.round(height / pixelSize));
+        
+        //console.log(`Pixelation: level=${targetLevel}, pixelSize=${pixelSize}px, original=${width}x${height}, reduced=${reducedWidth}x${reducedHeight}`);
+        
+        // Two-step pixelation matching Jimp's .pixelate():
+        // 1. Resize down (averages colors in each pixelSize block)
+        // 2. Resize up with nearest neighbor (creates blocky effect)
+        const buffer = await sharp(
+            await sharp(fullPath)
+                .resize(reducedWidth, reducedHeight, { 
+                    fit: 'fill'
+                    // Default kernel averages colors
+                })
+                .toBuffer()
+        )
+        .resize(width, height, { 
+            kernel: sharp.kernel.nearest,  // Creates blocky pixelated effect
+            fit: 'fill'
+        })
+        .jpeg({ quality: 90 })
+        .toBuffer();
+        
+        res.set('Content-Type', 'image/jpeg');
+        res.send(buffer);
+        
     } catch (error) {
         console.error("Image Proxy Error:", error);
         res.status(404).send('Image not found');
