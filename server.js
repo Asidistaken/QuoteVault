@@ -336,97 +336,200 @@ app.delete('/api/admin/franchise/:id', (req, res) => {
     });
 });
 
+<<<<<<< HEAD
 // --- ROUTES: GAME LOGIC ---
+<<<<<<< HEAD
+=======
+/* --- ROUTES: GAME LOGIC --- */
+>>>>>>> parent of e738614 (Refactor random content API to improve selection logic)
 app.get('/api/content/random', async (req, res) => {
     const category = req.query.category || 'movie';
 
+    // Helper: Select a random question of a specific type (Decoupled)
+    const getRandomQuestion = (type, needsImage = false) => {
+        return new Promise((resolve, reject) => {
+            let query = `
+                SELECT q.*, f.title as franchise_title 
+                FROM questions q 
+                JOIN franchises f ON q.franchise_id = f.id 
+                WHERE f.category = ? AND q.type = ?
+            `;
+
+            // RE-SELECT LOGIC: 
+            // Only consider questions that actually have a file path.
+            // This guarantees we never pick a Character/Banner with no image.
+            if (needsImage) {
+                query += ` AND q.media_path IS NOT NULL AND q.media_path != ''`;
+            }
+
+            query += ` ORDER BY RANDOM() LIMIT 1`;
+
+            db.get(query, [category, type], (err, row) => {
+                if (err) reject(err);
+                else resolve(row);
+            });
+        });
+    };
+
     try {
+<<<<<<< HEAD
         // Helper function to get a random question of a specific type
         const getRandomQuestion = async (type) => {
             return new Promise((resolve, reject) => {
+                // For character and banner types, ensure media_path is not null
+                const mediaCheck = (type === 'character' || type === 'banner') 
+                    ? 'AND q.media_path IS NOT NULL' 
+                    : '';
+                
                 const sql = `
-                    SELECT q.*, f.title as franchise_title, f.category as franchise_category
+                    SELECT q.*, f.title as franchise_title, f.category as franchise_category, f.id as franchise_id
                     FROM questions q
                     JOIN franchises f ON q.franchise_id = f.id
-                    WHERE q.type = ? AND f.category = ?
+                    WHERE q.type = ? AND f.category = ? ${mediaCheck}
                     ORDER BY RANDOM()
                     LIMIT 1
                 `;
                 db.get(sql, [type, category], (err, row) => {
-                    if (err) reject(err);
-                    else resolve(row || null);
+                    if (err) {
+                        console.error(`Error fetching ${type}:`, err);
+                        reject(err);
+                    } else {
+                        resolve(row || null);
+                    }
                 });
             });
         };
 
         // Get random questions for each type from potentially different franchises
-        let quoteQ = await getRandomQuestion('quote');
-        let charQ = await getRandomQuestion('character');
-        let bannerQ = await getRandomQuestion('banner');
+        let quoteQ = null;
+        let charQ = null;
+        let bannerQ = null;
 
-        // If character or banner is missing, keep re-selecting until we get valid ones
-        let maxRetries = 10;
-        let retries = 0;
-
-        while ((!charQ || !bannerQ) && retries < maxRetries) {
-            if (!charQ) {
-                charQ = await getRandomQuestion('character');
-            }
-            if (!bannerQ) {
-                bannerQ = await getRandomQuestion('banner');
-            }
-            retries++;
+        // Try to get all three types with retries
+        const maxRetries = 10;
+        
+        for (let i = 0; i < maxRetries && !quoteQ; i++) {
+            quoteQ = await getRandomQuestion('quote');
+        }
+        
+        for (let i = 0; i < maxRetries && !charQ; i++) {
+            charQ = await getRandomQuestion('character');
+        }
+        
+        for (let i = 0; i < maxRetries && !bannerQ; i++) {
+            bannerQ = await getRandomQuestion('banner');
         }
 
         // If we still don't have the required content after retries, return error
         if (!quoteQ || !charQ || !bannerQ) {
+            const missing = [];
+            if (!quoteQ) missing.push('quotes');
+            if (!charQ) missing.push('characters');
+            if (!bannerQ) missing.push('banners');
+            
             return res.status(404).json({ 
-                error: "Not enough content available for this category" 
+                error: `Not enough content available for this category. Missing: ${missing.join(', ')}` 
             });
+=======
+        // Run 3 independent queries in parallel
+        // This ensures Quote, Character, and Banner can be from different franchises
+        const [quoteQ, charQ, bannerQ] = await Promise.all([
+            getRandomQuestion('quote', false),      // Quote (Video/Text)
+            getRandomQuestion('character', true),   // Character (Must have Image)
+            getRandomQuestion('banner', true)       // Banner (Must have Image)
+        ]);
+
+        // If database is empty or missing content for a type
+        if (!quoteQ || !charQ || !bannerQ) {
+            return res.json(null);
+>>>>>>> parent of e738614 (Refactor random content API to improve selection logic)
         }
 
         const responseData = {
-            // Quote franchise info
-            quote_franchise_id: quoteQ.franchise_id,
-            quote_franchise_title: quoteQ.franchise_title,
-            
-            // Character franchise info
-            char_franchise_id: charQ.franchise_id,
-            char_franchise_title: charQ.franchise_title,
-            
-            // Banner franchise info
-            banner_franchise_id: bannerQ.franchise_id,
-            banner_franchise_title: bannerQ.franchise_title,
-
+            // Base context (using Quote as the primary for ID logs, strictly internal)
+            id: quoteQ.franchise_id,
+            title: quoteQ.franchise_title,
             category: category,
 
-            // Specific IDs
+            // --- QUOTE DATA ---
             quote_id: quoteQ.id,
-            char_id: charQ.id,
-            banner_id: bannerQ.id,
-
-            // Answers
-            answer_quote: quoteQ.answer,
-            answer_char: charQ.answer,
-            answer_banner: bannerQ.answer,
-
-            // Media paths
+            // If specific answer is null, fallback to ITS franchise title
+            answer_quote: quoteQ.answer || quoteQ.franchise_title,
             video_path: quoteQ.media_path,
             stop_timestamp: quoteQ.stop_time,
+
+            // --- CHARACTER DATA (From potentially different franchise) ---
+            char_id: charQ.id,
+            // CRITICAL: Send the correct answer here (e.g., Character Name or Franchise Title)
+            // This ensures game.js uses this specific answer instead of the global title.
+            answer_char: charQ.answer || charQ.franchise_title,
             image_char_path: charQ.media_path,
             char_pixel_level: charQ.pixel_level,
+
+            // --- BANNER DATA (From potentially different franchise) ---
+            banner_id: bannerQ.id,
+            // CRITICAL: Send the correct answer here
+            answer_banner: bannerQ.answer || bannerQ.franchise_title,
             image_banner_path: bannerQ.media_path,
             banner_pixel_level: bannerQ.pixel_level
         };
 
         res.json(responseData);
 
-    } catch (error) {
-        console.error("Error fetching random content:", error);
-        res.status(500).json({ error: error.message });
+    } catch (err) {
+        console.error("Content Fetch Error:", err);
+        res.status(500).json({ error: err.message });
     }
-});
+=======
+/* --- ROUTES: GAME LOGIC --- */
+app.get('/api/content/random', (req, res) => {
+    const category = req.query.category || 'movie';
 
+    db.get(`SELECT * FROM franchises WHERE category = ? ORDER BY RANDOM() LIMIT 1`, [category], (err, franchise) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!franchise) return res.json(null);
+
+        db.all(`SELECT * FROM questions WHERE franchise_id = ?`, [franchise.id], (err, questions) => {
+            if (err) return res.status(500).json({ error: err.message });
+
+            const pickRandom = (type) => {
+                const arr = questions.filter(q => q.type === type);
+                return arr.length > 0 ? arr[Math.floor(Math.random() * arr.length)] : {};
+            };
+
+            const quoteQ = pickRandom('quote');
+            const charQ = pickRandom('character');
+            const bannerQ = pickRandom('banner');
+
+            const responseData = {
+                id: franchise.id,
+                title: franchise.title,
+                category: franchise.category,
+
+                // Specific IDs
+                quote_id: quoteQ.id,
+                char_id: charQ.id,
+                banner_id: bannerQ.id,
+
+                // --- FIX: SEND SPECIFIC ANSWERS FOR ALL MODES ---
+                answer_quote: quoteQ.answer,
+                answer_char: charQ.answer,     // <--- Added this
+                answer_banner: bannerQ.answer, // <--- Added this
+                // ---------------------------------------------
+
+                video_path: quoteQ.media_path,
+                stop_timestamp: quoteQ.stop_time,
+                image_char_path: charQ.media_path,
+                char_pixel_level: charQ.pixel_level,
+                image_banner_path: bannerQ.media_path,
+                banner_pixel_level: bannerQ.pixel_level
+            };
+
+            res.json(responseData);
+        });
+    });
+>>>>>>> parent of 592faac (Refactor random content API to decouple question selection)
+});
 
 app.post('/api/check-answer', (req, res) => {
     // FIX: Receive specific questionId instead of generic franchiseId
@@ -443,8 +546,8 @@ app.post('/api/check-answer', (req, res) => {
 
         if (isCorrect && req.session.userId) {
             const sql = `INSERT INTO user_activity 
-                         (user_id, question_id, is_solved, attempts, hints_used, time_taken) 
-                         VALUES (?, ?, ?, ?, ?, ?)`;
+                        (user_id, question_id, is_solved, attempts, hints_used, time_taken) 
+                        VALUES (?, ?, ?, ?, ?, ?)`;
 
             db.run(sql, [
                 req.session.userId,
@@ -510,9 +613,9 @@ app.get('/api/image-proxy', async (req, res) => {
                 .resize(reducedWidth, reducedHeight, { fit: 'fill' })
                 .toBuffer()
         )
-        .resize(width, height, { kernel: sharp.kernel.nearest, fit: 'fill' })
-        .jpeg({ quality: 90 })
-        .toBuffer();
+            .resize(width, height, { kernel: sharp.kernel.nearest, fit: 'fill' })
+            .jpeg({ quality: 90 })
+            .toBuffer();
 
         res.set('Content-Type', 'image/jpeg');
         res.send(buffer);
