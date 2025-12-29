@@ -558,38 +558,112 @@ video {
         flex-direction: column;
         align-items: center;
         width: 100%;
+        gap: 25px; /* Spacing between navigation and card */
     }
 
     .content-area {
         display: flex;
         flex-direction: column;
-        gap: 20px;
+        gap: 15px;
         width: 100%;
-        max-width: 600px;
+        max-width: 500px; /* Limits width on larger tablets for a cleaner look */
     }
 
+    /* --- NAVIGATION WRAPPER --- */
     .sidebar-wrapper {
-        justify-self: center;
-        grid-column: auto;
+        width: 100%;
+        justify-content: center;
+        flex-direction: column; /* Stack the two rows of buttons */
+        gap: 20px;
+        padding: 0 10px;
     }
 
-    .profile-widget {
-        top: 15px;
-        right: 15px;
-        width: 40px;
-        height: 40px;
+    .sidebar {
+        flex-direction: row; /* Turn columns into rows */
+        width: 100%;
+        justify-content: center;
+        gap: 12px;
+        padding: 0;
     }
 
+    /* --- TOP ROW (Categories) --- */
+    .category-sidebar {
+        width: 100%;
+    }
+
+    .nav-btn {
+        width: 80px; /* Wider for easier tapping */
+        height: 75px; 
+        border-radius: 16px;
+        flex-direction: column; /* Keeps icon top, text bottom */
+    }
+
+    .nav-btn span {
+        display: block;
+        margin-top: 6px;
+        font-size: 0.75rem;
+        /* Ensures text stays horizontal */
+        writing-mode: horizontal-tb;
+        transform: none; 
+    }
+
+    /* --- BOTTOM ROW (Modes) --- */
+    .mode-sidebar {
+        width: 100%;
+        gap: 15px;
+    }
+
+    .mode-btn {
+        width: 55px;
+        height: 55px;
+        font-size: 1.2rem;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.08); /* Slight background like the image buttons */
+    }
+
+    /* Suggest/Shuffle Button */
+    .suggest-btn {
+        margin-top: 0; /* Remove desktop margin */
+        margin-left: 15px; /* clear visual separation for the shuffle button */
+        /* Since it is the last item in HTML, it naturally sits on the Right */
+    }
+
+    /* --- CARD & PLAYER --- */
     .display-card {
-        height: 250px;
-        aspect-ratio: auto;
+        width: 100%;
+        height: auto;
+        aspect-ratio: 16 / 9; /* Maintains video shape */
+        border-radius: 20px;
     }
 
     .restart-btn {
         opacity: 1;
         transform: scale(1);
-        top: 10px;
-        right: 10px;
+        width: 40px;
+        height: 40px;
+        top: 15px;
+        right: 15px;
+        left: auto; /* Moves restart button to top-right corner on mobile if desired */
+        bottom: auto;
+    }
+
+    /* --- INPUT SECTION --- */
+    .answer-section {
+        border-radius: 20px;
+        padding: 12px;
+    }
+
+    .profile-widget {
+        top: 20px;
+        right: 20px;
+        width: 40px;
+        height: 40px;
+    }
+
+    /* Hide Site Header Text if you want a super clean look like the image, 
+       otherwise keep it. The image had a logo, current CSS has text. */
+    .site-header h1 {
+        font-size: 1.8rem;
     }
 }
 
