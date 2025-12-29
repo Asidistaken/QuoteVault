@@ -492,6 +492,8 @@ function checkAnswer() {
             if (data.correct) {
                 state.solved = true;
 
+                if (mode !== 'quote') renderImages();
+
                 if (isDragMode) {
                     // --- SUCCESS ANIMATION LOGIC ---
                     const allSlots = document.querySelectorAll('.char-slot');
