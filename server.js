@@ -337,60 +337,86 @@ app.delete('/api/admin/franchise/:id', (req, res) => {
 });
 
 // --- ROUTES: GAME LOGIC ---
-/* --- ROUTES: GAME LOGIC --- */
-app.get('/api/content/random', (req, res) => {
+/* --- UPDATED: DECOUPLED SELECTION LOGIC --- */
+app.get('/api/content/random', async (req, res) => {
     const category = req.query.category || 'movie';
 
-    db.get(`SELECT * FROM franchises WHERE category = ? ORDER BY RANDOM() LIMIT 1`, [category], (err, franchise) => {
-        if (err) return res.status(500).json({ error: err.message });
-        if (!franchise) return res.json(null);
+    // Helper to fetch one random valid question of a specific type
+    const getRandomItem = (type) => {
+        return new Promise((resolve, reject) => {
+            // We join Franchises to get the Title
+            let sql = `SELECT q.*, f.title as franchise_title 
+                       FROM questions q 
+                       JOIN franchises f ON q.franchise_id = f.id 
+                       WHERE f.category = ? AND q.type = ?`;
+            
+            // STRICT RULE: If it's character or banner, it MUST have a media path.
+            if (type === 'character' || type === 'banner') {
+                sql += ` AND q.media_path IS NOT NULL AND q.media_path != ''`;
+            }
 
-        db.all(`SELECT * FROM questions WHERE franchise_id = ?`, [franchise.id], (err, questions) => {
-            if (err) return res.status(500).json({ error: err.message });
+            sql += ` ORDER BY RANDOM() LIMIT 1`;
 
-            const pickRandom = (type) => {
-                const arr = questions.filter(q => q.type === type);
-                return arr.length > 0 ? arr[Math.floor(Math.random() * arr.length)] : {};
-            };
-
-            const quoteQ = pickRandom('quote');
-            const charQ = pickRandom('character');
-            const bannerQ = pickRandom('banner');
-
-            const responseData = {
-                id: franchise.id,
-                title: franchise.title,
-                category: franchise.category,
-
-                // Specific IDs
-                quote_id: quoteQ.id,
-                char_id: charQ.id,
-                banner_id: bannerQ.id,
-
-                // --- FIX: SEND SPECIFIC ANSWERS FOR ALL MODES ---
-                answer_quote: quoteQ.answer,
-                answer_char: charQ.answer,     // <--- Added this
-                answer_banner: bannerQ.answer, // <--- Added this
-                // ---------------------------------------------
-
-                video_path: quoteQ.media_path,
-                stop_timestamp: quoteQ.stop_time,
-                image_char_path: charQ.media_path,
-                char_pixel_level: charQ.pixel_level,
-                image_banner_path: bannerQ.media_path,
-                banner_pixel_level: bannerQ.pixel_level
-            };
-
-            res.json(responseData);
+            db.get(sql, [category, type], (err, row) => {
+                if (err) reject(err);
+                else resolve(row || null);
+            });
         });
-    });
+    };
+
+    try {
+        // Run 3 independent queries in parallel.
+        // This ensures they can be from DIFFERENT franchises.
+        const [quoteQ, charQ, bannerQ] = await Promise.all([
+            getRandomItem('quote'),
+            getRandomItem('character'),
+            getRandomItem('banner')
+        ]);
+
+        // If any category returns nothing (e.g., DB is empty), handle gracefully
+        if (!quoteQ && !charQ && !bannerQ) {
+            return res.json(null);
+        }
+
+        const responseData = {
+            // We no longer have a "Global" Franchise ID/Title because they are mixed.
+            // But we can return the category.
+            category: category,
+
+            // --- QUOTE DATA ---
+            quote_id: quoteQ ? quoteQ.id : null,
+            quote_franchise_title: quoteQ ? quoteQ.franchise_title : null, 
+            answer_quote: quoteQ ? quoteQ.answer : null,
+            video_path: quoteQ ? quoteQ.media_path : null,
+            stop_timestamp: quoteQ ? quoteQ.stop_time : null,
+
+            // --- CHARACTER DATA ---
+            char_id: charQ ? charQ.id : null,
+            char_franchise_title: charQ ? charQ.franchise_title : null,
+            answer_char: charQ ? charQ.answer : null,
+            image_char_path: charQ ? charQ.media_path : null,
+            char_pixel_level: charQ ? charQ.pixel_level : null,
+
+            // --- BANNER DATA ---
+            banner_id: bannerQ ? bannerQ.id : null,
+            banner_franchise_title: bannerQ ? bannerQ.franchise_title : null,
+            answer_banner: bannerQ ? bannerQ.answer : null,
+            image_banner_path: bannerQ ? bannerQ.media_path : null,
+            banner_pixel_level: bannerQ ? bannerQ.pixel_level : null
+        };
+
+        res.json(responseData);
+
+    } catch (err) {
+        console.error("Error fetching random content:", err);
+        res.status(500).json({ error: "Server Error" });
+    }
 });
 
 app.post('/api/check-answer', (req, res) => {
-    // FIX: Receive specific questionId instead of generic franchiseId
     const { questionId, userGuess, attempts, hints, timeTaken } = req.body;
 
-    // FIX: Look up by specific question ID
+    // Look up by specific question ID
     db.get(`SELECT * FROM questions WHERE id = ?`, [questionId], (err, question) => {
         if (!question) return res.status(404).json({ error: "Question not found" });
 
@@ -450,9 +476,7 @@ app.get('/api/image-proxy', async (req, res) => {
         // --- FIXED HINT PROGRESSION ---
         const MAX_BLOCK_SIZE = 50;
 
-        // Use LINEAR progression instead of Exponential/Sqrt.
-        // This ensures the gap between Hint 4 (0.62) and Hint 5 (0.82) is distinct.
-        // Hint 4: ~19px blocks | Hint 5: ~9px blocks
+        // Use LINEAR progression
         let pixelSize = Math.floor(MAX_BLOCK_SIZE * (1.0 - targetLevel));
 
         pixelSize = Math.max(2, pixelSize);
