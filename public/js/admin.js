@@ -274,16 +274,28 @@ function syncListPixel(cardId, val) {
 
     cv.width = raw.naturalWidth;
     cv.height = raw.naturalHeight;
-    const level = val / 100;
 
-    if (level >= 1.0) {
+    const targetLevel = val / 100;
+
+    if (targetLevel >= 0.95) {
         ctx.drawImage(raw, 0, 0);
     } else {
-        const w = cv.width * level;
-        const h = cv.height * level;
-        ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(raw, 0, 0, w, h);
-        ctx.drawImage(cv, 0, 0, w, h, 0, 0, cv.width, cv.height);
+        const MAX_BLOCK_SIZE = 50;
+
+        // --- UPDATED MATH (MATCHES SERVER) ---
+        // Removed Math.sqrt to keep the last steps from being too clear
+        let pixelSize = Math.floor(MAX_BLOCK_SIZE * (1.0 - targetLevel));
+        
+        pixelSize = Math.max(2, pixelSize);
+
+        const reducedWidth = Math.max(1, Math.round(cv.width / pixelSize));
+        const reducedHeight = Math.max(1, Math.round(cv.height / pixelSize));
+
+        ctx.imageSmoothingEnabled = true; // Use smooth downscaling
+        ctx.drawImage(raw, 0, 0, reducedWidth, reducedHeight);
+
+        ctx.imageSmoothingEnabled = false; // Use nearest-neighbor upscaling
+        ctx.drawImage(cv, 0, 0, reducedWidth, reducedHeight, 0, 0, cv.width, cv.height);
     }
 }
 

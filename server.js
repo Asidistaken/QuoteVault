@@ -420,14 +420,17 @@ app.post('/api/check-answer', (req, res) => {
     });
 });
 
-/* --- IMAGE PROXY ROUTE --- */
+/* --- IMAGE PROXY ROUTE WITH LINEAR PROGRESSION --- */
 app.get('/api/image-proxy', async (req, res) => {
     const { path: imgPath, level } = req.query;
+
     if (!imgPath || !imgPath.startsWith('uploads/')) {
         return res.status(403).send('Access Denied');
     }
+
     try {
         let targetLevel = parseFloat(level);
+
         if (isNaN(targetLevel)) {
             const question = await new Promise((resolve, reject) => {
                 db.get(`SELECT pixel_level FROM questions WHERE media_path = ?`, [imgPath], (err, row) => {
@@ -437,53 +440,41 @@ app.get('/api/image-proxy', async (req, res) => {
             });
             targetLevel = (question && question.pixel_level) ? question.pixel_level : 0.02;
         }
+
         const fullPath = path.join(__dirname, 'public', imgPath);
-        
-        // If solved or very high level, send original
+
         if (targetLevel >= 0.95) {
             return res.sendFile(fullPath);
         }
-        
-        // --- MATCH JIMP'S EXACT FORMULA ---
-        const MAX_BLOCK_SIZE = 50; // Maximum blur size in pixels
-        
-        // Calculate block size: As level goes 0 -> 1, size goes 50 -> 0
+
+        // --- FIXED HINT PROGRESSION ---
+        const MAX_BLOCK_SIZE = 50;
+
+        // Use LINEAR progression instead of Exponential/Sqrt.
+        // This ensures the gap between Hint 4 (0.62) and Hint 5 (0.82) is distinct.
+        // Hint 4: ~19px blocks | Hint 5: ~9px blocks
         let pixelSize = Math.floor(MAX_BLOCK_SIZE * (1.0 - targetLevel));
-        
-        // Ensure we don't go below 2px
+
         pixelSize = Math.max(2, pixelSize);
-        
-        // Get original dimensions
+
         const metadata = await sharp(fullPath).metadata();
         const { width, height } = metadata;
-        
-        // Calculate reduced dimensions (number of pixel blocks)
+
         const reducedWidth = Math.max(1, Math.round(width / pixelSize));
         const reducedHeight = Math.max(1, Math.round(height / pixelSize));
-        
-        //console.log(`Pixelation: level=${targetLevel}, pixelSize=${pixelSize}px, original=${width}x${height}, reduced=${reducedWidth}x${reducedHeight}`);
-        
-        // Two-step pixelation matching Jimp's .pixelate():
-        // 1. Resize down (averages colors in each pixelSize block)
-        // 2. Resize up with nearest neighbor (creates blocky effect)
+
         const buffer = await sharp(
             await sharp(fullPath)
-                .resize(reducedWidth, reducedHeight, { 
-                    fit: 'fill'
-                    // Default kernel averages colors
-                })
+                .resize(reducedWidth, reducedHeight, { fit: 'fill' })
                 .toBuffer()
         )
-        .resize(width, height, { 
-            kernel: sharp.kernel.nearest,  // Creates blocky pixelated effect
-            fit: 'fill'
-        })
+        .resize(width, height, { kernel: sharp.kernel.nearest, fit: 'fill' })
         .jpeg({ quality: 90 })
         .toBuffer();
-        
+
         res.set('Content-Type', 'image/jpeg');
         res.send(buffer);
-        
+
     } catch (error) {
         console.error("Image Proxy Error:", error);
         res.status(404).send('Image not found');
