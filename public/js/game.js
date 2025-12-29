@@ -194,6 +194,89 @@ window.loadCategoryContent = function (category) {
         .catch(err => console.error(err));
 };
 
+/* --- HANDLE MODE SWITCHING (Called by mainpage.js) --- */
+window.updateInputState = function() {
+    const mode = window.currentMode;
+    const state = currentData[mode];
+
+    // 1. Reset Global Drag State variable
+    isDragMode = false; 
+
+    // 2. Clear Drag Interface (remove tiles from previous mode)
+    const existingDrag = document.querySelector('.drag-interface');
+    if (existingDrag) existingDrag.remove();
+
+    // 3. Reset Input Field to default state
+    if (answerInput) {
+        answerInput.classList.remove('hidden', 'correct', 'wrong', 'shake');
+        answerInput.disabled = false;
+        answerInput.value = "";
+    }
+
+    // 4. Reset Submit Button
+    if (submitBtn) {
+        submitBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i>';
+        submitBtn.classList.remove('next-btn');
+    }
+    
+    // 5. Reset Hint Button
+    if (hintBtn) {
+        hintBtn.classList.remove('disabled');
+    }
+
+    // 6. CHECK: Is the new mode already solved?
+    if (state.solved) {
+        if (answerInput) {
+            answerInput.value = state.answer || "";
+            answerInput.classList.add('correct');
+            answerInput.disabled = true;
+        }
+        if (submitBtn) {
+            submitBtn.innerHTML = '<i class="fa-solid fa-forward-step"></i>';
+            submitBtn.classList.add('next-btn');
+        }
+        // Force clear image if solved (for character/banner)
+        if (mode !== 'quote') renderImages();
+
+    } else {
+        // 7. CHECK: Is the new mode "In Progress" (Hints used)?
+        // We might need to restore Drag & Drop if the user unlocked it here previously.
+        
+        let shouldTriggerDrag = false;
+        let dndLevel = 0;
+
+        if (mode === 'quote') {
+            // Quote: Any hint triggers Drag & Drop
+            if (state.hintsUsed > 0) {
+                shouldTriggerDrag = true;
+                dndLevel = state.hintsUsed;
+            }
+            // Lock hint button if maxed
+            if (state.hintsUsed >= 4 && hintBtn) hintBtn.classList.add('disabled');
+
+        } else {
+            // Image Modes:
+            // Hints 1-5: Pixelation only (Input stays text)
+            // Hints 6+: Drag & Drop
+            if (state.hintsUsed >= 6) {
+                shouldTriggerDrag = true;
+                dndLevel = state.hintsUsed - 5;
+            }
+            // Lock hint button if maxed (5 pixel + 4 drag = 9)
+            if (state.hintsUsed >= 9 && hintBtn) hintBtn.classList.add('disabled');
+            
+            // Always ensure image is rendered at correct pixel level
+            renderImages();
+        }
+
+        // Restore Drag Interface if needed
+        if (shouldTriggerDrag) {
+            isDragMode = true;
+            setupDragDrop(state.answer, dndLevel);
+        }
+    }
+};
+
 /* --- HINT LOGIC --- */
 window.revealHint = function (isAuto = false) {
     const state = currentData[window.currentMode];
