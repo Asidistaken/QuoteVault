@@ -336,54 +336,85 @@ app.delete('/api/admin/franchise/:id', (req, res) => {
     });
 });
 
-// --- ROUTES: GAME LOGIC ---
 /* --- ROUTES: GAME LOGIC --- */
-app.get('/api/content/random', (req, res) => {
+app.get('/api/content/random', async (req, res) => {
     const category = req.query.category || 'movie';
 
-    db.get(`SELECT * FROM franchises WHERE category = ? ORDER BY RANDOM() LIMIT 1`, [category], (err, franchise) => {
-        if (err) return res.status(500).json({ error: err.message });
-        if (!franchise) return res.json(null);
+    // Helper: Select a random question of a specific type (Decoupled)
+    const getRandomQuestion = (type, needsImage = false) => {
+        return new Promise((resolve, reject) => {
+            let query = `
+                SELECT q.*, f.title as franchise_title 
+                FROM questions q 
+                JOIN franchises f ON q.franchise_id = f.id 
+                WHERE f.category = ? AND q.type = ?
+            `;
 
-        db.all(`SELECT * FROM questions WHERE franchise_id = ?`, [franchise.id], (err, questions) => {
-            if (err) return res.status(500).json({ error: err.message });
+            // RE-SELECT LOGIC: 
+            // Only consider questions that actually have a file path.
+            // This guarantees we never pick a Character/Banner with no image.
+            if (needsImage) {
+                query += ` AND q.media_path IS NOT NULL AND q.media_path != ''`;
+            }
 
-            const pickRandom = (type) => {
-                const arr = questions.filter(q => q.type === type);
-                return arr.length > 0 ? arr[Math.floor(Math.random() * arr.length)] : {};
-            };
+            query += ` ORDER BY RANDOM() LIMIT 1`;
 
-            const quoteQ = pickRandom('quote');
-            const charQ = pickRandom('character');
-            const bannerQ = pickRandom('banner');
-
-            const responseData = {
-                id: franchise.id,
-                title: franchise.title,
-                category: franchise.category,
-
-                // Specific IDs
-                quote_id: quoteQ.id,
-                char_id: charQ.id,
-                banner_id: bannerQ.id,
-
-                // --- FIX: SEND SPECIFIC ANSWERS FOR ALL MODES ---
-                answer_quote: quoteQ.answer,
-                answer_char: charQ.answer,     // <--- Added this
-                answer_banner: bannerQ.answer, // <--- Added this
-                // ---------------------------------------------
-
-                video_path: quoteQ.media_path,
-                stop_timestamp: quoteQ.stop_time,
-                image_char_path: charQ.media_path,
-                char_pixel_level: charQ.pixel_level,
-                image_banner_path: bannerQ.media_path,
-                banner_pixel_level: bannerQ.pixel_level
-            };
-
-            res.json(responseData);
+            db.get(query, [category, type], (err, row) => {
+                if (err) reject(err);
+                else resolve(row);
+            });
         });
-    });
+    };
+
+    try {
+        // Run 3 independent queries in parallel
+        // This ensures Quote, Character, and Banner can be from different franchises
+        const [quoteQ, charQ, bannerQ] = await Promise.all([
+            getRandomQuestion('quote', false),      // Quote (Video/Text)
+            getRandomQuestion('character', true),   // Character (Must have Image)
+            getRandomQuestion('banner', true)       // Banner (Must have Image)
+        ]);
+
+        // If database is empty or missing content for a type
+        if (!quoteQ || !charQ || !bannerQ) {
+            return res.json(null);
+        }
+
+        const responseData = {
+            // Base context (using Quote as the primary for ID logs, strictly internal)
+            id: quoteQ.franchise_id,
+            title: quoteQ.franchise_title,
+            category: category,
+
+            // --- QUOTE DATA ---
+            quote_id: quoteQ.id,
+            // If specific answer is null, fallback to ITS franchise title
+            answer_quote: quoteQ.answer || quoteQ.franchise_title,
+            video_path: quoteQ.media_path,
+            stop_timestamp: quoteQ.stop_time,
+
+            // --- CHARACTER DATA (From potentially different franchise) ---
+            char_id: charQ.id,
+            // CRITICAL: Send the correct answer here (e.g., Character Name or Franchise Title)
+            // This ensures game.js uses this specific answer instead of the global title.
+            answer_char: charQ.answer || charQ.franchise_title,
+            image_char_path: charQ.media_path,
+            char_pixel_level: charQ.pixel_level,
+
+            // --- BANNER DATA (From potentially different franchise) ---
+            banner_id: bannerQ.id,
+            // CRITICAL: Send the correct answer here
+            answer_banner: bannerQ.answer || bannerQ.franchise_title,
+            image_banner_path: bannerQ.media_path,
+            banner_pixel_level: bannerQ.pixel_level
+        };
+
+        res.json(responseData);
+
+    } catch (err) {
+        console.error("Content Fetch Error:", err);
+        res.status(500).json({ error: err.message });
+    }
 });
 
 app.post('/api/check-answer', (req, res) => {
@@ -401,8 +432,8 @@ app.post('/api/check-answer', (req, res) => {
 
         if (isCorrect && req.session.userId) {
             const sql = `INSERT INTO user_activity 
-                         (user_id, question_id, is_solved, attempts, hints_used, time_taken) 
-                         VALUES (?, ?, ?, ?, ?, ?)`;
+                        (user_id, question_id, is_solved, attempts, hints_used, time_taken) 
+                        VALUES (?, ?, ?, ?, ?, ?)`;
 
             db.run(sql, [
                 req.session.userId,
@@ -468,9 +499,9 @@ app.get('/api/image-proxy', async (req, res) => {
                 .resize(reducedWidth, reducedHeight, { fit: 'fill' })
                 .toBuffer()
         )
-        .resize(width, height, { kernel: sharp.kernel.nearest, fit: 'fill' })
-        .jpeg({ quality: 90 })
-        .toBuffer();
+            .resize(width, height, { kernel: sharp.kernel.nearest, fit: 'fill' })
+            .jpeg({ quality: 90 })
+            .toBuffer();
 
         res.set('Content-Type', 'image/jpeg');
         res.send(buffer);
