@@ -40,9 +40,18 @@ window.addEventListener('DOMContentLoaded', () => {
     if (vidEl) {
         vidEl.addEventListener('timeupdate', () => {
             if (!currentData || currentData.quote.solved) return;
+            
+            // LOGIC: Pause at timestamp
             if (!vidEl.paused && vidEl.currentTime >= window.stopTimestamp) {
                 vidEl.pause();
                 vidEl.currentTime = window.stopTimestamp;
+
+                // UI UPDATE: Show "Answer!" hint
+                const wrapper = document.querySelector('.video-wrapper');
+                const hint = document.querySelector('.play-hint');
+                
+                if (wrapper) wrapper.classList.remove('playing'); // Show overlay
+                if (hint) hint.innerHTML = '<i class="fa-solid fa-pen"></i> Answer!';
             }
         });
     }
@@ -59,8 +68,11 @@ window.loadCategoryContent = function(category) {
     const videoEl = document.getElementById('clip');
     if(videoEl) videoEl.src = '';
     
+    // Reset Player UI
     const videoWrapper = document.querySelector('.video-wrapper');
+    const hint = document.querySelector('.play-hint');
     if(videoWrapper) videoWrapper.classList.remove('playing');
+    if(hint) hint.innerHTML = '<i class="fa-solid fa-play"></i> Click to Play';
     
     // Reset Data
     currentData = {

@@ -58,6 +58,40 @@ button {
     transform: scale(1.05);
 }
 
+/* Styling for the Franchise Delete button to match btn-remove */
+.btn-meta-delete {
+    width: 36px;
+    height: 36px;
+    background: rgba(30, 30, 30, 0.9);
+    border: 1px solid #444;
+    border-radius: 8px;
+    color: #ff2e63;
+    /* Red color */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    /* No position:absolute here, so it fits in the layout */
+}
+
+.btn-meta-delete:hover {
+    background: #ff2e63;
+    color: white;
+    border-color: #ff2e63;
+    transform: scale(1.05);
+}
+
+/* Helper for the row containing "Metadata" and the Button */
+.meta-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    min-height: 36px;
+    /* Ensures height matches button so text centers vertically */
+}
+
 /* LAYOUT GRID */
 .admin-layout {
     display: grid;
@@ -690,16 +724,20 @@ input[type=range]::-webkit-slider-runnable-track {
     }
 
     .filter-chip {
-        aspect-ratio: auto; /* Stops them from being forced squares */
-        height: 50px;       /* Sets a standard, touch-friendly height */
+        aspect-ratio: auto;
+        /* Stops them from being forced squares */
+        height: 50px;
+        /* Sets a standard, touch-friendly height */
         border-radius: 12px;
     }
-    
+
     .filter-row {
-        gap: 8px; /* Slightly tighter spacing for mobile */
+        gap: 8px;
+        /* Slightly tighter spacing for mobile */
     }
 
     .meta-panel {
-        gap: 30px; /* Forces space between the tags and the save button */
+        gap: 30px;
+        /* Forces space between the tags and the save button */
     }
 }

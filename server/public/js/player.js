@@ -23,6 +23,10 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             video.pause();
             videoWrapper.classList.remove('playing');
+            
+            // RESET TEXT: Ensure manual pause shows "Click to Play" not "Answer"
+            const hint = document.querySelector('.play-hint');
+            if (hint) hint.innerHTML = '<i class="fa-solid fa-play"></i> Click to Play';
         }
     });
 
@@ -31,6 +35,11 @@ document.addEventListener('DOMContentLoaded', () => {
         restartBtn.addEventListener('click', (e) => {
             e.stopPropagation(); // Prevent toggling play/pause on wrapper
             video.currentTime = 0;
+            
+            // RESET TEXT: When restarting, go back to standard play hint
+            const hint = document.querySelector('.play-hint');
+            if (hint) hint.innerHTML = '<i class="fa-solid fa-play"></i> Click to Play';
+            
             video.play();
             videoWrapper.classList.add('playing');
         });
@@ -46,8 +55,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Update Text
         if(volumePercent) volumePercent.textContent = val + '%';
-        
-        // ICON CHANGE REMOVED HERE
     }
 
     function setVolume(val) {

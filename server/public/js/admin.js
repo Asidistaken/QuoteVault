@@ -92,68 +92,74 @@ function confirmRemoveCard(id) {
 
 function addQuoteItem(data = {}) {
     const domId = uuid();
-    const id = data.id || domId;
+    const id = data.id || domId; // This is used for DOM ID
+    const dbId = data.id || '';  // This is the actual Database ID
 
     const html = `
-                <div class="card quote-card" id="${id}">
-                    <div class="media-container">
-                        <button class="btn-remove" onclick="confirmRemoveCard('${id}')" title="Remove">
-                            <i class="fa-solid fa-trash"></i>
-                        </button>
+        <div class="card quote-card" id="${id}">
+            <input type="hidden" class="inp-db-id" value="${dbId}"> 
 
-                        <div class="placeholder-text video-ph" style="${data.path ? 'display:none' : ''}">
-                            <i class="fa-solid fa-film"></i> No Video
-                        </div>
-                        <video class="vid-preview" controls src="${data.path || ''}" style="${data.path ? 'display:block' : 'display:none'}"></video>
-                        
-                        <button class="btn-upload" onclick="triggerUpload('${id}', '.file-video')">
-                            <i class="fa-solid fa-upload"></i>
-                        </button>
-                    </div>
-                    <input type="file" class="file-video" accept="video/*" hidden onchange="handleListVideo(this, '${id}')">
-                    <input type="text" class="form-input inp-time" placeholder="Stop Time (e.g. 14.5)" value="${data.stop || ''}">
-                    <input type="text" class="form-input inp-quote" placeholder="Correct Quote" value="${data.answer || ''}">
+            <div class="media-container">
+                <button class="btn-remove" onclick="confirmRemoveCard('${id}')" title="Remove">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
+
+                <div class="placeholder-text video-ph" style="${data.path ? 'display:none' : ''}">
+                    <i class="fa-solid fa-film"></i> No Video
                 </div>
-            `;
+                <video class="vid-preview" controls src="${data.path || ''}" style="${data.path ? 'display:block' : 'display:none'}"></video>
+                
+                <button class="btn-upload" onclick="triggerUpload('${id}', '.file-video')">
+                    <i class="fa-solid fa-upload"></i>
+                </button>
+            </div>
+            <input type="file" class="file-video" accept="video/*" hidden onchange="handleListVideo(this, '${id}')">
+            <input type="text" class="form-input inp-time" placeholder="Stop Time (e.g. 14.5)" value="${data.stop || ''}">
+            <input type="text" class="form-input inp-quote" class="inp-answer" placeholder="Correct Quote" value="${data.answer || ''}">
+            </div>
+    `;
     document.getElementById('list-quotes').insertAdjacentHTML('beforeend', html);
 }
 
 function addCharItem(data = {}) {
     const domId = uuid();
     const id = data.id || domId;
+    const dbId = data.id || ''; 
     const level = data.level !== undefined ? data.level * 100 : 100;
 
     const html = `
-                <div class="card char-card" id="${id}">
-                    <div class="media-container">
-                        <button class="btn-remove" onclick="confirmRemoveCard('${id}')" title="Remove">
-                            <i class="fa-solid fa-trash"></i>
-                        </button>
+        <div class="card char-card" id="${id}">
+            <input type="hidden" class="inp-db-id" value="${dbId}">
 
-                        <div class="placeholder-text img-ph">
-                            <i class="fa-regular fa-user"></i> No Image
-                        </div>
-                        <canvas class="cv-preview" style="display:none;"></canvas>
-                        <img class="raw-preview" style="display:none;">
-                        
-                        <button class="btn-upload" onclick="triggerUpload('${id}', '.file-img')">
-                            <i class="fa-solid fa-upload"></i>
-                        </button>
-                    </div>
-                    <input type="file" class="file-img" accept="image/*" hidden onchange="handleListImage(this, '${id}')">
-                    
-                    <div class="slider-container">
-                        <div class="slider-header"><span>Clarity</span> <i class="fa-solid fa-eye"></i></div>
-                        <div class="slider-row">
-                            <input type="range" class="rng-pixel" min="1" max="100" value="${level}" 
-                                   oninput="syncListPixel('${id}', this.value)">
-                            <input type="number" class="slider-number num-pixel" min="1" max="100" value="${level}" 
-                                   oninput="syncListPixel('${id}', this.value)">
-                        </div>
-                    </div>
-                    <input type="text" class="form-input inp-answer" placeholder="Character Name" value="${data.answer || ''}">
+            <div class="media-container">
+                <button class="btn-remove" onclick="confirmRemoveCard('${id}')" title="Remove">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
+
+                <div class="placeholder-text img-ph">
+                    <i class="fa-regular fa-user"></i> No Image
                 </div>
-            `;
+                <canvas class="cv-preview" style="display:none;"></canvas>
+                <img class="raw-preview" style="display:none;">
+                
+                <button class="btn-upload" onclick="triggerUpload('${id}', '.file-img')">
+                    <i class="fa-solid fa-upload"></i>
+                </button>
+            </div>
+            <input type="file" class="file-img" accept="image/*" hidden onchange="handleListImage(this, '${id}')">
+            
+            <div class="slider-container">
+                <div class="slider-header"><span>Clarity</span> <i class="fa-solid fa-eye"></i></div>
+                <div class="slider-row">
+                    <input type="range" class="rng-pixel" min="1" max="100" value="${level}" 
+                           oninput="syncListPixel('${id}', this.value)">
+                    <input type="number" class="slider-number num-pixel" min="1" max="100" value="${level}" 
+                           oninput="syncListPixel('${id}', this.value)">
+                </div>
+            </div>
+            <input type="text" class="form-input inp-answer" placeholder="Character Name" value="${data.answer || ''}">
+        </div>
+    `;
     document.getElementById('list-chars').insertAdjacentHTML('beforeend', html);
     if (data.path) loadListImage(id, data.path, data.level);
 }
@@ -161,38 +167,41 @@ function addCharItem(data = {}) {
 function addBannerItem(data = {}) {
     const domId = uuid();
     const id = data.id || domId;
+    const dbId = data.id || ''; 
     const level = data.level !== undefined ? data.level * 100 : 100;
 
     const html = `
-                <div class="card banner-card" id="${id}">
-                    <div class="media-container">
-                        <button class="btn-remove" onclick="confirmRemoveCard('${id}')" title="Remove">
-                            <i class="fa-solid fa-trash"></i>
-                        </button>
+        <div class="card banner-card" id="${id}">
+            <input type="hidden" class="inp-db-id" value="${dbId}">
 
-                        <div class="placeholder-text img-ph">
-                            <i class="fa-regular fa-image"></i> No Image
-                        </div>
-                        <canvas class="cv-preview" style="display:none;"></canvas>
-                        <img class="raw-preview" style="display:none;">
-                        
-                        <button class="btn-upload" onclick="triggerUpload('${id}', '.file-img')">
-                            <i class="fa-solid fa-upload"></i>
-                        </button>
-                    </div>
-                    <input type="file" class="file-img" accept="image/*" hidden onchange="handleListImage(this, '${id}')">
-                    
-                    <div class="slider-container">
-                        <div class="slider-header"><span>Clarity</span> <i class="fa-solid fa-eye"></i></div>
-                        <div class="slider-row">
-                            <input type="range" class="rng-pixel" min="1" max="100" value="${level}" 
-                                   oninput="syncListPixel('${id}', this.value)">
-                            <input type="number" class="slider-number num-pixel" min="1" max="100" value="${level}" 
-                                   oninput="syncListPixel('${id}', this.value)">
-                        </div>
-                    </div>
+            <div class="media-container">
+                <button class="btn-remove" onclick="confirmRemoveCard('${id}')" title="Remove">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
+
+                <div class="placeholder-text img-ph">
+                    <i class="fa-regular fa-image"></i> No Image
                 </div>
-            `;
+                <canvas class="cv-preview" style="display:none;"></canvas>
+                <img class="raw-preview" style="display:none;">
+                
+                <button class="btn-upload" onclick="triggerUpload('${id}', '.file-img')">
+                    <i class="fa-solid fa-upload"></i>
+                </button>
+            </div>
+            <input type="file" class="file-img" accept="image/*" hidden onchange="handleListImage(this, '${id}')">
+            
+            <div class="slider-container">
+                <div class="slider-header"><span>Clarity</span> <i class="fa-solid fa-eye"></i></div>
+                <div class="slider-row">
+                    <input type="range" class="rng-pixel" min="1" max="100" value="${level}" 
+                           oninput="syncListPixel('${id}', this.value)">
+                    <input type="number" class="slider-number num-pixel" min="1" max="100" value="${level}" 
+                           oninput="syncListPixel('${id}', this.value)">
+                </div>
+            </div>
+        </div>
+    `;
     document.getElementById('list-banners').insertAdjacentHTML('beforeend', html);
     if (data.path) loadListImage(id, data.path, data.level);
 }
@@ -201,7 +210,7 @@ function addBannerItem(data = {}) {
 function triggerUpload(cardId, selector) {
     // FIX: Use getElementById to safely handle numeric IDs (e.g. "1")
     const card = document.getElementById(cardId);
-    if(card) {
+    if (card) {
         card.querySelector(selector).click();
     }
 }
@@ -285,14 +294,16 @@ function loadEdit(item) {
     setCategory(item.category);
     document.getElementById('metaTitle').value = item.title;
 
+    // Show Delete Button (now located in the header)
+    document.getElementById('btnDelete').style.display = 'flex';
+
+    // Loop through questions...
     document.getElementById('list-quotes').innerHTML = '';
     document.getElementById('list-chars').innerHTML = '';
     document.getElementById('list-banners').innerHTML = '';
 
-    // Loop through the questions array from the server
     item.questions.forEach(q => {
         if (q.type === 'quote') {
-            // Pass the ID explicitly
             addQuoteItem({ id: q.id, path: q.media_path, stop: q.stop_time, answer: q.answer });
         } else if (q.type === 'character') {
             addCharItem({ id: q.id, path: q.media_path, answer: q.answer, level: q.pixel_level });
@@ -301,7 +312,7 @@ function loadEdit(item) {
         }
     });
 
-    // Add empty cards if none exist
+    // Add empty cards if needed
     if (document.getElementById('list-quotes').children.length === 0) addQuoteItem();
     if (document.getElementById('list-chars').children.length === 0) addCharItem();
     if (document.getElementById('list-banners').children.length === 0) addBannerItem();
@@ -313,16 +324,19 @@ function loadEdit(item) {
 function resetForm() {
     document.getElementById('editContentId').value = '';
     document.getElementById('metaTitle').value = '';
+    document.getElementById('tagInput').value = '';
+
     document.getElementById('list-quotes').innerHTML = '';
     document.getElementById('list-chars').innerHTML = '';
     document.getElementById('list-banners').innerHTML = '';
 
-    addQuoteItem();
-    addCharItem();
-    addBannerItem();
+    document.getElementById('tagContainer').innerHTML = '';
 
-    currentTags = [];
-    renderTags();
+    document.getElementById('btnSaveText').innerText = 'Save Movie';
+
+    // Hide delete button (Updated ID reference)
+    const btnDelete = document.getElementById('btnDelete');
+    if (btnDelete) btnDelete.style.display = 'none';
 }
 
 // --- 5. TAGS ---
@@ -356,68 +370,208 @@ function renderTags() {
 }
 function removeTag(t) { currentTags = currentTags.filter(x => x !== t); renderTags(); }
 
-// --- 6. SAVE ---
+// Helper to visually alert the user to the specific input
+function highlightError(inputElement) {
+    if (!inputElement) return;
+    
+    // Scroll to the empty input so the user sees it
+    inputElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    
+    // Add visual error styles (Shake + Red Border)
+    inputElement.classList.add('shake');
+    inputElement.style.borderColor = '#ff2e63';
+    
+    // Remove styles after animation
+    setTimeout(() => {
+        inputElement.classList.remove('shake');
+        inputElement.style.borderColor = '';
+    }, 2000);
+}
+
+// --- 6. SAVE (UPDATED: No Timer, OK Button) ---
 async function saveContent() {
+    // 1. Validate Main Title
+    const titleInput = document.getElementById('metaTitle');
+    const titleVal = titleInput.value.trim();
+
+    if (!titleVal) {
+        highlightError(titleInput);
+        swal.fire({
+            icon: 'error',
+            title: 'Missing Title',
+            text: 'Please enter a Franchise Title before saving.'
+        });
+        return;
+    }
+
+    // Show Loading
+    swal.fire({ title: 'Validating & Saving...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+    const formData = new FormData();
     const id = document.getElementById('editContentId').value;
-    const title = document.getElementById('metaTitle').value;
-    const fd = new FormData();
 
-    fd.append('id', id);
-    fd.append('category', currentCategory);
-    fd.append('title', title);
-    fd.append('tags', JSON.stringify(currentTags));
+    formData.append('id', id);
+    formData.append('title', titleVal);
 
-    // Collect ALL items (Quotes, Chars, Banners)
-    const items = [];
+    const activeBtn = document.querySelector('.type-btn.active');
+    const category = activeBtn ? activeBtn.innerText.toLowerCase() : 'movie';
+    formData.append('category', category);
 
-    // 1. Helper to process cards
-    const processCards = (selector, type) => {
-        document.querySelectorAll(selector + ' .card').forEach((card, index) => {
-            const dbId = card.id.startsWith('id-') ? null : card.id; // Existing ID or Null
+    // Tags
+    formData.append('tags', JSON.stringify(currentTags)); 
 
-            // Generate a unique key for the file (e.g., "video_0", "char_1")
-            const fileKey = `${type}_${index}_${Math.random().toString(36).substr(2, 5)}`;
+    const contentItems = [];
+    let validationError = false; 
 
-            const fileInput = card.querySelector('.file-video') || card.querySelector('.file-img');
-            if (fileInput.files[0]) {
-                fd.append(fileKey, fileInput.files[0]);
+    const processList = (listId, type) => {
+        if (validationError) return; 
+
+        const container = document.getElementById(listId);
+        const items = container.querySelectorAll('.card');
+
+        items.forEach((itemDiv, index) => {
+            if (validationError) return;
+
+            // Selectors
+            const dbIdInput = itemDiv.querySelector('.inp-db-id');
+            const fileInput = itemDiv.querySelector('.inp-file') || itemDiv.querySelector('.file-video') || itemDiv.querySelector('.file-img');
+            
+            const answerInput = itemDiv.querySelector('.inp-answer') || itemDiv.querySelector('.inp-quote');
+            const timeInput = itemDiv.querySelector('.inp-time');
+            const pixelInput = itemDiv.querySelector('.inp-pixel') || itemDiv.querySelector('.rng-pixel');
+
+            // Get Values
+            const answerVal = answerInput ? answerInput.value.trim() : '';
+            const timeVal = timeInput ? timeInput.value.trim() : '';
+
+            // --- VALIDATION LOGIC ---
+            
+            // 1. Check Answer/Name (skip banners)
+            if (type !== 'banner') {
+                if (!answerVal) {
+                    validationError = true;
+                    highlightError(answerInput);
+                    swal.fire({
+                        icon: 'warning',
+                        title: 'Missing Information',
+                        text: `Please enter the ${type === 'quote' ? 'Correct Quote' : 'Character Name'} for item #${index + 1}.`
+                    });
+                    return;
+                }
             }
 
-            // Gather Data
-            const answer = card.querySelector('.inp-quote') ? card.querySelector('.inp-quote').value :
-                (card.querySelector('.inp-answer') ? card.querySelector('.inp-answer').value : title);
+            // 2. Check Stop Time (Only for Quotes)
+            if (type === 'quote') {
+                if (!timeVal) {
+                    validationError = true;
+                    highlightError(timeInput);
+                    swal.fire({
+                        icon: 'warning',
+                        title: 'Missing Time',
+                        text: `Please enter the Stop Time (e.g. 14.5) for Quote #${index + 1}.`
+                    });
+                    return;
+                }
+            }
+            // ------------------------
 
-            const stopTime = card.querySelector('.inp-time') ? card.querySelector('.inp-time').value : null;
-            const pixelSlider = card.querySelector('.rng-pixel');
-            const pixelLevel = pixelSlider ? pixelSlider.value / 100 : null;
+            const fileKey = `${type}_${Date.now()}_${index}`;
 
-            items.push({
+            const itemData = {
+                dbId: dbIdInput ? dbIdInput.value : null, 
                 type: type,
-                dbId: dbId, // Pass the DB ID so server knows to UPDATE, not INSERT
-                fileKey: fileKey, // Tell server which file belongs to this item
-                answer: answer,
-                stop_time: stopTime,
-                pixel_level: pixelLevel
-            });
+                fileKey: fileKey,
+                answer: answerVal,
+                stop_time: timeVal,
+                pixel_level: pixelInput ? (pixelInput.value / 100) : 1.0 
+            };
+
+            if (fileInput && fileInput.files[0]) {
+                formData.append(fileKey, fileInput.files[0]);
+            }
+
+            contentItems.push(itemData);
         });
     };
 
-    processCards('#list-quotes', 'quote');
-    processCards('#list-chars', 'character');
-    processCards('#list-banners', 'banner');
+    // Process Lists
+    processList('list-quotes', 'quote');
+    processList('list-chars', 'character');
+    processList('list-banners', 'banner');
 
-    // Send the metadata as a JSON string
-    fd.append('contentItems', JSON.stringify(items));
+    if (validationError) return;
 
+    formData.append('contentItems', JSON.stringify(contentItems));
+
+    // Send to Server
     try {
-        const res = await fetch('/api/admin/content', { method: 'POST', body: fd });
-        const d = await res.json();
-        if (d.success) {
-            swal.fire({ icon: 'success', title: 'Saved', showConfirmButton: false, timer: 1000 });
-            searchContent();
-            if (!id) resetForm();
-        } else throw new Error(d.error);
-    } catch (e) {
-        swal.fire({ icon: 'error', title: 'Error', text: e.message });
+        const response = await fetch('/api/admin/content', {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            // --- UPDATED SUCCESS ALERT ---
+            swal.fire({
+                icon: 'success',
+                title: 'Saved!',
+                text: 'Content has been updated successfully.',
+                showConfirmButton: true, // Show the button
+                confirmButtonText: 'OK'  // Set text
+            }).then(() => {
+                // Only reset AFTER user clicks OK
+                resetForm();
+                searchContent();
+            });
+            
+        } else {
+            throw new Error(result.error || 'Unknown error');
+        }
+    } catch (error) {
+        swal.fire({
+            icon: 'error',
+            title: 'Save Failed',
+            text: error.message
+        });
     }
+}
+
+function deleteFranchise() {
+    const id = document.getElementById('editContentId').value;
+
+    if (!id) return;
+
+    // USE 'swal' MIXIN
+    swal.fire({
+        title: 'Delete this Franchise?',
+        text: "This will permanently delete the franchise and files.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Yes, delete it!'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            swal.fire({ title: 'Deleting...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+            fetch(`/api/admin/franchise/${id}`, {
+                method: 'DELETE'
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        swal.fire('Deleted!', 'Franchise has been removed.', 'success');
+                        resetForm();
+                        searchContent();
+                    } else {
+                        swal.fire('Error', data.error || 'Failed to delete.', 'error');
+                    }
+                })
+                .catch(err => {
+                    swal.fire('Error', 'Server connection error.', 'error');
+                });
+        }
+    });
 }

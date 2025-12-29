@@ -297,6 +297,45 @@ app.post('/api/admin/content', uploadAny, async (req, res) => {
     }
 });
 
+// --- ROUTE: DELETE FRANCHISE ---
+app.delete('/api/admin/franchise/:id', (req, res) => {
+    if (!req.session.userId || !req.session.isAdmin) {
+        return res.status(403).json({ error: "Access Denied" });
+    }
+
+    const franchiseId = req.params.id;
+
+    // 1. Get all media paths associated with this franchise to delete files
+    db.all('SELECT media_path FROM questions WHERE franchise_id = ?', [franchiseId], (err, rows) => {
+        if (err) console.error("Error fetching files for deletion:", err);
+
+        // Delete physical files
+        if (rows && rows.length > 0) {
+            rows.forEach(row => {
+                if (row.media_path) deleteFile(row.media_path);
+            });
+        }
+
+        // 2. Perform Database Cleanup
+        db.serialize(() => {
+            // Remove Tags association
+            db.run('DELETE FROM franchise_tags WHERE franchise_id = ?', [franchiseId]);
+            
+            // Remove Questions/Content
+            db.run('DELETE FROM questions WHERE franchise_id = ?', [franchiseId]);
+            
+            // Remove Franchise Entry
+            db.run('DELETE FROM franchises WHERE id = ?', [franchiseId], function(err) {
+                if (err) {
+                    res.status(500).json({ error: "Database Delete Error" });
+                } else {
+                    res.json({ success: true });
+                }
+            });
+        });
+    });
+});
+
 // --- ROUTES: GAME LOGIC ---
 app.get('/api/content/random', (req, res) => {
     const category = req.query.category || 'movie';

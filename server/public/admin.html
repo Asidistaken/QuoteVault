@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,16 +12,17 @@
     <link rel="stylesheet" href="css/admin.css">
     <script src="js/admin.js"></script>
 </head>
+
 <body class="theme-movie">
 
     <div class="admin-layout">
-        
+
         <aside class="sidebar admin-sidebar">
             <div class="sidebar-header">
                 Database
                 <i class="fa-solid fa-server"></i>
             </div>
-            
+
             <div class="search-wrapper">
                 <i class="fa-solid fa-magnifying-glass"></i>
                 <input type="text" id="searchInput" placeholder="Search content..." onkeyup="searchContent()">
@@ -62,7 +64,7 @@
             <input type="hidden" id="inpTitle">
 
             <div class="sections-container">
-                
+
                 <div class="content-section">
                     <div class="section-header">Quote Clips</div>
                     <div id="list-quotes" class="section-list"></div>
@@ -92,26 +94,41 @@
 
         <aside class="meta-panel">
             <div class="tag-area">
-                <div class="card-label" style="text-align:left; margin-bottom:10px;">Metadata</div>
-                <input type="text" class="form-input" id="metaTitle" placeholder="Franchise Title (e.g. Breaking Bad)" style="margin-bottom:15px;">
-                
+                <div class="meta-header-row">
+                    <div class="card-label" style="text-align:left; margin:0;">Metadata</div>
+
+                    <button id="btnDelete" class="btn-meta-delete" onclick="deleteFranchise()" title="Delete Franchise"
+                        style="display: none;">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </div>
+
+                <input type="text" class="form-input" id="metaTitle" placeholder="Franchise Title (e.g. Breaking Bad)"
+                    style="margin-bottom:15px;">
+
                 <div class="card-label" style="text-align:left; margin-bottom:10px;">Tags & Genre</div>
                 <div class="tag-input-group">
-                    <input type="text" class="form-input" id="tagInput" list="tagListSuggestions" placeholder="Add tag...">
+                    <input type="text" class="form-input" id="tagInput" list="tagListSuggestions"
+                        placeholder="Add tag...">
                     <datalist id="tagListSuggestions"></datalist>
-                    <button class="btn-new" style="margin:0; width:50px; padding:0; display:flex; align-items:center; justify-content:center;" onclick="addTag()">
+                    <button class="btn-new"
+                        style="margin:0; width:50px; padding:0; display:flex; align-items:center; justify-content:center;"
+                        onclick="addTag()">
                         <i class="fa-solid fa-plus"></i>
                     </button>
                 </div>
                 <div class="tag-list" id="tagContainer"></div>
             </div>
 
-            <button class="btn-save" id="btnSave" onclick="saveContent()">
-                <i class="fa-solid fa-floppy-disk"></i>
-                <span id="btnSaveText">Save Movie</span>
-            </button>
+            <div style="margin-top: auto;">
+                <button class="btn-save" id="btnSave" onclick="saveContent()">
+                    <i class="fa-solid fa-floppy-disk"></i>
+                    <span id="btnSaveText">Save Movie</span>
+                </button>
+            </div>
         </aside>
 
     </div>
 </body>
+
 </html>
