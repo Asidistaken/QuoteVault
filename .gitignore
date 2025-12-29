@@ -144,3 +144,4 @@ vite.config.ts.timestamp-*
 server/quotevault-old.db
 quotevault.db
 *.db
+quotevault.db
