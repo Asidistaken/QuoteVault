@@ -688,11 +688,6 @@ function loadEdit(item) {
     if (btnDelete && (item._id || item.id)) {
         btnDelete.style.display = 'block';
     }
-
-    // Focus title input
-    if (metaTitle) {
-        setTimeout(() => metaTitle.focus(), 100);
-    }
 }
 
 // --- 10. RESET FORM ---
