@@ -487,10 +487,13 @@ button {
     display: flex;
     align-items: center;
     gap: 10px;
+    width: 100%; /* Ensure row takes full width */
 }
 
 input[type=range] {
     flex: 1;
+    /* FIX: Allow slider to shrink below default browser width */
+    min-width: 0; 
     appearance: none;
     background: transparent;
 }
@@ -523,6 +526,8 @@ input[type=range]::-webkit-slider-runnable-track {
     border-radius: 4px;
     font-size: 0.9rem;
     font-weight: bold;
+    /* FIX: Prevent number box from being squished */
+    flex-shrink: 0; 
 }
 
 /* --- 3. META PANEL --- */
