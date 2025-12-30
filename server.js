@@ -16,7 +16,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
 app.use(session({
-    secret: 'quotevault_secret_key',
+    secret: 'quotevault_ultra_top_secret_key_no_one_knows_not_even_me_12345!!!',
     resave: false,
     saveUninitialized: false,
     cookie: { maxAge: 24 * 60 * 60 * 1000 }
@@ -446,57 +446,83 @@ app.post('/api/check-answer', (req, res) => {
     });
 });
 
-/* --- IMAGE PROXY ROUTE WITH LINEAR PROGRESSION --- */
+/* --- IMAGE PROXY ROUTE (Server-Side Level Calculation) --- */
 app.get('/api/image-proxy', async (req, res) => {
-    const { path: imgPath, level } = req.query;
+    const { path: imgPath, level, hint } = req.query; // Added 'hint'
 
     if (!imgPath || !imgPath.startsWith('uploads/')) {
         return res.status(403).send('Access Denied');
     }
 
-    try {
-        let targetLevel = parseFloat(level);
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
 
-        if (isNaN(targetLevel)) {
+    try {
+        let targetLevel;
+
+        // CASE 1: Explicit Level provided (e.g. "1.0" when solved)
+        if (level !== undefined) {
+            targetLevel = parseFloat(level);
+        } 
+        // CASE 2: Hint Index provided (Calculate based on DB start level)
+        else if (hint !== undefined) {
+            const hintIdx = parseInt(hint);
+            
+            // Fetch the specific 'pixel_level' for this image from DB
             const question = await new Promise((resolve, reject) => {
                 db.get(`SELECT pixel_level FROM questions WHERE media_path = ?`, [imgPath], (err, row) => {
                     if (err) reject(err);
                     else resolve(row);
                 });
             });
-            targetLevel = (question && question.pixel_level) ? question.pixel_level : 0.02;
+
+            // Default to 0.02 if DB is empty
+            const startLevel = (question && question.pixel_level !== undefined) ? question.pixel_level : 0.02;
+            
+            // --- SERVER-SIDE MATH ---
+            // Start at DB level, add 0.15 for every hint used
+            targetLevel = startLevel + (hintIdx * 0.15);
+        }
+        // CASE 3: Fallback (Just use DB level)
+        else {
+             const question = await new Promise((resolve, reject) => {
+                db.get(`SELECT pixel_level FROM questions WHERE media_path = ?`, [imgPath], (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row);
+                });
+            });
+            targetLevel = (question && question.pixel_level !== undefined) ? question.pixel_level : 0.02;
         }
 
         const fullPath = path.join(__dirname, 'public', imgPath);
 
+        // 1. If Solved/Clear (>= 0.95), send original
         if (targetLevel >= 0.95) {
             return res.sendFile(fullPath);
         }
 
-        // --- FIXED HINT PROGRESSION ---
-        const MAX_BLOCK_SIZE = 50;
-
-        // Use LINEAR progression
-        let pixelSize = Math.floor(MAX_BLOCK_SIZE * (1.0 - targetLevel));
-
-        pixelSize = Math.max(2, pixelSize);
-
-        const metadata = await sharp(fullPath).metadata();
+        // 2. Pixelation Logic (Linear & Crisp PNG)
+        const originalImage = sharp(fullPath);
+        const metadata = await originalImage.metadata();
         const { width, height } = metadata;
+
+        const MAX_BLOCK_SIZE = 50; 
+        let pixelSize = Math.floor(MAX_BLOCK_SIZE * (1.0 - targetLevel));
+        pixelSize = Math.max(2, pixelSize);
 
         const reducedWidth = Math.max(1, Math.round(width / pixelSize));
         const reducedHeight = Math.max(1, Math.round(height / pixelSize));
 
         const buffer = await sharp(
-            await sharp(fullPath)
-                .resize(reducedWidth, reducedHeight, { fit: 'fill' })
+            await originalImage
+                .resize(reducedWidth, reducedHeight, { fit: 'fill', kernel: sharp.kernel.nearest })
+                .toFormat('png')
                 .toBuffer()
         )
-        .resize(width, height, { kernel: sharp.kernel.nearest, fit: 'fill' })
-        .jpeg({ quality: 90 })
+        .resize(width, height, { fit: 'fill', kernel: sharp.kernel.nearest })
+        .toFormat('png')
         .toBuffer();
 
-        res.set('Content-Type', 'image/jpeg');
+        res.set('Content-Type', 'image/png');
         res.send(buffer);
 
     } catch (error) {

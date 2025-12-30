@@ -281,52 +281,39 @@ window.updateInputState = function() {
 window.revealHint = function (isAuto = false) {
     const state = currentData[window.currentMode];
     if (state.solved) return;
-
     if (hintBtn && hintBtn.classList.contains('disabled')) return;
 
     if (!isAuto) state.hintsUsed++;
 
-    // --- QUOTE MODE LOGIC (Immediate D&D) ---
     if (window.currentMode === 'quote') {
+        // ... (Quote logic remains the same) ...
         isDragMode = true;
         setupDragDrop(state.answer, state.hintsUsed);
+        if (state.hintsUsed >= 4 && hintBtn) hintBtn.classList.add('disabled');
 
-        // Max Hint Lock (Level 4)
-        if (state.hintsUsed >= 4 && hintBtn) {
-            hintBtn.classList.add('disabled');
-        }
-    }
-    // --- IMAGE MODES LOGIC (Progressive Reveal -> Then D&D) ---
-    else {
-        // Logic: 
-        // Hints 1-4: Pixelate Less
-        // Hint 5: Clear Image
-        // Hint 6: Drag & Drop
-        // Hint 7+: Better D&D Hints
-
+    } else {
+        // --- IMAGE MODES ---
+        
+        // Phase 1: Pixelation (Hints 0 to 4)
         if (state.hintsUsed <= 4) {
-            // PIXELATION PHASE
-            // Steps: 0.02 -> 0.25 -> 0.5 -> 0.75 -> 0.9 (approx)
-            state.level = 0.02 + (state.hintsUsed * 0.2);
-            renderImages();
-        }
+            // We don't calculate level here anymore. 
+            // We just ask the server for the next image.
+            renderImages(); 
+        } 
+        // Phase 2: Clear Image (Hint 5)
         else if (state.hintsUsed === 5) {
-            // CLEAR IMAGE PHASE
-            state.level = 1.0;
-            renderImages();
-        }
+            // state.solved is not true yet, but we want to show clear image
+            // We can handle this by sending level=1.0 or letting renderImages check hintsUsed
+            // Let's manually force a clear render here:
+            if(charImg) charImg.src = `/api/image-proxy?path=${encodeURIComponent(charImg.dataset.src)}&level=1.0`;
+            if(bannerImg) bannerImg.src = `/api/image-proxy?path=${encodeURIComponent(bannerImg.dataset.src)}&level=1.0`;
+        } 
+        // Phase 3: Drag & Drop (Hint 6+)
         else {
-            // DRAG & DROP PHASE (Hint 6+)
             isDragMode = true;
-
-            // We map "Hints Used" to "D&D Level"
-            // Hint 6 -> D&D Level 1 (Global Shuffle)
-            // Hint 7 -> D&D Level 2 (Word Shuffle)
-            // etc.
             const dndLevel = state.hintsUsed - 5;
             setupDragDrop(state.answer, dndLevel);
 
-            // Lock if we max out D&D hints (Level 4 = Hint 9 total)
             if (dndLevel >= 4 && hintBtn) {
                 hintBtn.classList.add('disabled');
             }
@@ -523,16 +510,25 @@ window.renderImages = function () {
     const charState = currentData.character;
     const bannerState = currentData.banner;
 
+    // Helper to build URL
+    const getUrl = (imgElement, state) => {
+        if (!imgElement.dataset.src) return '';
+        
+        // If solved, force clear (level=1.0)
+        // If playing, send hint count (hint=0, 1, 2...)
+        const param = state.solved ? 'level=1.0' : `hint=${state.hintsUsed}`;
+        
+        return `/api/image-proxy?path=${encodeURIComponent(imgElement.dataset.src)}&${param}&t=${Date.now()}`;
+    };
+
     if (charImg && charImg.dataset.src) {
-        const url = `/api/image-proxy?path=${encodeURIComponent(charImg.dataset.src)}&level=${charState.solved ? 1.0 : charState.level}&t=${Date.now()}`;
-        charImg.src = url;
+        charImg.src = getUrl(charImg, charState);
     }
 
     if (bannerImg && bannerImg.dataset.src) {
-        const url = `/api/image-proxy?path=${encodeURIComponent(bannerImg.dataset.src)}&level=${bannerState.solved ? 1.0 : bannerState.level}&t=${Date.now()}`;
-        bannerImg.src = url;
+        bannerImg.src = getUrl(bannerImg, bannerState);
     }
-}
+};
 
 function checkAnswer() {
     const mode = window.currentMode;
