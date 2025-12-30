@@ -400,7 +400,7 @@ function highlightError(inputElement) {
     }, 2000);
 }
 
-// --- 6. SAVE (UPDATED: No Timer, OK Button) ---
+// --- 6. SAVE (FIXED: Loader only appears after validation passes) ---
 async function saveContent() {
     // 1. Validate Main Title
     const titleInput = document.getElementById('metaTitle');
@@ -411,13 +411,15 @@ async function saveContent() {
         swal.fire({
             icon: 'error',
             title: 'Missing Title',
-            text: 'Please enter a Franchise Title before saving.'
+            text: 'Please enter a Franchise Title before saving.',
+            confirmButtonText: 'OK',
+            showConfirmButton: true
         });
         return;
     }
 
-    // Show Loading
-    swal.fire({ title: 'Validating & Saving...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    // --- MOVED LOADING SCREEN FROM HERE --- 
+    // We do NOT show the loader yet. We validate the list first.
 
     const formData = new FormData();
     const id = document.getElementById('editContentId').value;
@@ -458,7 +460,30 @@ async function saveContent() {
 
             // --- VALIDATION LOGIC ---
             
-            // 1. Check Answer/Name (skip banners)
+            // 1. MEDIA CHECK
+            const hasDbId = dbIdInput && dbIdInput.value;
+            const hasNewFile = fileInput && fileInput.files.length > 0;
+
+            if (!hasDbId && !hasNewFile) {
+                validationError = true;
+                
+                const mediaContainer = itemDiv.querySelector('.media-container');
+                highlightError(mediaContainer);
+
+                let mediaType = 'Image';
+                if (type === 'quote') mediaType = 'Video';
+
+                swal.fire({
+                    icon: 'warning',
+                    title: `Missing ${mediaType}`,
+                    text: `Please upload a ${mediaType} for item #${index + 1} (${type}).`,
+                    confirmButtonText: 'OK',
+                    showConfirmButton: true // FORCE button visibility
+                });
+                return;
+            }
+            
+            // 2. TEXT CHECK
             if (type !== 'banner') {
                 if (!answerVal) {
                     validationError = true;
@@ -466,13 +491,15 @@ async function saveContent() {
                     swal.fire({
                         icon: 'warning',
                         title: 'Missing Information',
-                        text: `Please enter the ${type === 'quote' ? 'Correct Quote' : 'Character Name'} for item #${index + 1}.`
+                        text: `Please enter the ${type === 'quote' ? 'Correct Quote' : 'Character Name'} for item #${index + 1}.`,
+                        confirmButtonText: 'OK',
+                        showConfirmButton: true
                     });
                     return;
                 }
             }
 
-            // 2. Check Stop Time (Only for Quotes)
+            // 3. TIME CHECK
             if (type === 'quote') {
                 if (!timeVal) {
                     validationError = true;
@@ -480,12 +507,13 @@ async function saveContent() {
                     swal.fire({
                         icon: 'warning',
                         title: 'Missing Time',
-                        text: `Please enter the Stop Time (e.g. 14.5) for Quote #${index + 1}.`
+                        text: `Please enter the Stop Time (e.g. 14.5) for Quote #${index + 1}.`,
+                        confirmButtonText: 'OK',
+                        showConfirmButton: true
                     });
                     return;
                 }
             }
-            // ------------------------
 
             const fileKey = `${type}_${Date.now()}_${index}`;
 
@@ -511,9 +539,18 @@ async function saveContent() {
     processList('list-chars', 'character');
     processList('list-banners', 'banner');
 
+    // If validation failed, stop here. The alert is already showing.
     if (validationError) return;
 
     formData.append('contentItems', JSON.stringify(contentItems));
+
+    // --- SHOW LOADING NOW (Only after everything is valid) ---
+    swal.fire({ 
+        title: 'Saving Data...', 
+        text: 'Please wait while we upload your files.',
+        allowOutsideClick: false, 
+        didOpen: () => Swal.showLoading() 
+    });
 
     // Send to Server
     try {
@@ -525,15 +562,13 @@ async function saveContent() {
         const result = await response.json();
 
         if (result.success) {
-            // --- UPDATED SUCCESS ALERT ---
             swal.fire({
                 icon: 'success',
                 title: 'Saved!',
                 text: 'Content has been updated successfully.',
-                showConfirmButton: true, // Show the button
-                confirmButtonText: 'OK'  // Set text
+                showConfirmButton: true,
+                confirmButtonText: 'OK'
             }).then(() => {
-                // Only reset AFTER user clicks OK
                 resetForm();
                 searchContent();
             });
@@ -545,7 +580,9 @@ async function saveContent() {
         swal.fire({
             icon: 'error',
             title: 'Save Failed',
-            text: error.message
+            text: error.message,
+            showConfirmButton: true,
+            confirmButtonText: 'OK'
         });
     }
 }
