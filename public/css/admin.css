@@ -462,7 +462,7 @@ button {
     border-color: var(--primary);
 }
 
-/* SLIDER & NUMBER INPUT */
+/* SLIDER & NUMBER INPUT (FIXED for overflow) */
 .slider-container {
     background: var(--bg-input);
     padding: 10px;
@@ -487,13 +487,12 @@ button {
     display: flex;
     align-items: center;
     gap: 10px;
-    width: 100%; /* Ensure row takes full width */
+    width: 100%;
 }
 
 input[type=range] {
     flex: 1;
-    /* FIX: Allow slider to shrink below default browser width */
-    min-width: 0; 
+    min-width: 0; /* FIX: Allows slider to shrink */
     appearance: none;
     background: transparent;
 }
@@ -526,8 +525,7 @@ input[type=range]::-webkit-slider-runnable-track {
     border-radius: 4px;
     font-size: 0.9rem;
     font-weight: bold;
-    /* FIX: Prevent number box from being squished */
-    flex-shrink: 0; 
+    flex-shrink: 0; /* FIX: Prevents squishing */
 }
 
 /* --- 3. META PANEL --- */
@@ -541,47 +539,125 @@ input[type=range]::-webkit-slider-runnable-track {
     justify-content: space-between;
 }
 
-.tag-area {
-    flex: 1;
+/* --- NEW TAG SYSTEM STYLES (Search + List + Weight) --- */
+
+/* Wrapper for search and dropdown */
+.tag-search-wrapper {
+    position: relative;
+    margin-bottom: 10px;
+}
+
+/* Dropdown */
+.tag-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    background: #1e1e1e;
+    border: 1px solid #444;
+    border-radius: 8px;
+    z-index: 1000;
+    
+    /* SCROLLABLE LIST */
+    max-height: 250px; 
+    overflow-y: auto;
+    
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    margin-top: 5px;
+}
+
+.tag-dropdown.hidden {
+    display: none;
+}
+
+.suggestion-item {
+    padding: 10px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #333;
+    color: #ccc;
+    font-size: 0.9rem;
+    transition: background 0.2s;
+}
+
+.suggestion-item:hover {
+    background: var(--primary);
+    color: white;
+}
+
+/* Tag List Area */
+.tag-list-container {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-}
-
-.tag-input-group {
-    display: flex;
     gap: 8px;
+    max-height: 300px;
+    overflow-y: auto;
+    padding-right: 5px;
+    margin-bottom: 15px;
 }
 
-.tag-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    align-content: flex-start;
-    margin-top: 10px;
-}
-
-.tag-chip {
-    background: #222;
-    color: #ccc;
-    font-size: 0.8rem;
-    padding: 6px 10px;
-    border-radius: 6px;
-    border: 1px solid #333;
+/* Individual Tag Row */
+.tag-row {
     display: flex;
     align-items: center;
-    gap: 8px;
+    background: #222;
+    border: 1px solid #333;
+    padding: 8px 10px;
+    border-radius: 8px;
+    gap: 10px;
+    transition: border-color 0.2s;
 }
 
-.tag-chip span {
-    cursor: pointer;
+.tag-row:hover {
+    border-color: #555;
+}
+
+.tag-name {
+    flex: 1;
+    font-weight: 500;
+    color: #eee;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.9rem;
+}
+
+/* Weight Input */
+.tag-weight-input {
+    width: 60px;
+    background: #111;
+    border: 1px solid #444;
+    color: var(--accent);
+    border-radius: 4px;
+    padding: 5px;
+    text-align: center;
+    font-weight: bold;
+    font-size: 0.9rem;
+}
+
+.tag-weight-input:focus {
+    border-color: var(--primary);
+    outline: none;
+}
+
+/* Remove Button */
+.btn-remove-tag {
+    background: transparent;
+    border: none;
     color: #666;
-    font-size: 1.1em;
+    cursor: pointer;
+    font-size: 0.9rem;
+    padding: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s;
 }
 
-.tag-chip span:hover {
-    color: var(--primary);
+.btn-remove-tag:hover {
+    color: #ff2e63;
 }
+
+/* --- END TAG STYLES --- */
 
 .btn-save {
     background: var(--primary);
@@ -617,6 +693,101 @@ input[type=range]::-webkit-slider-runnable-track {
 ::-webkit-scrollbar-thumb:hover {
     background: #555;
 }
+
+
+/* --- MODAL STYLES --- */
+.swal2-container {
+    z-index: 9999 !important;
+}
+
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    backdrop-filter: blur(5px);
+}
+
+.modal-overlay.hidden {
+    display: none;
+}
+
+.modal-content {
+    background: #181818;
+    border: 1px solid #333;
+    width: 400px;
+    max-width: 90%;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    max-height: 80vh;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+.modal-header {
+    padding: 15px;
+    border-bottom: 1px solid #333;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 { margin: 0; color: #fff; font-size: 1.1rem; }
+
+.btn-close-modal {
+    background: transparent; border: none;
+    color: #888; cursor: pointer; font-size: 1.2rem;
+}
+.btn-close-modal:hover { color: #fff; }
+
+.modal-body {
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow: hidden; /* Contains the scrollable list */
+}
+
+.manager-list {
+    overflow-y: auto;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-height: 200px;
+}
+
+.manager-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #222;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+}
+.manager-item:hover { border-color: #444; }
+.manager-item span { color: #ccc; font-weight: 500; }
+
+.btn-delete-global {
+    background: rgba(255, 46, 99, 0.1);
+    color: #ff2e63;
+    border: 1px solid rgba(255, 46, 99, 0.3);
+    border-radius: 4px;
+    padding: 5px 10px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.2s;
+}
+.btn-delete-global:hover {
+    background: #ff2e63;
+    color: white;
+}
+
 
 /* --- RESPONSIVE MEDIA QUERIES --- */
 

@@ -1,4 +1,5 @@
-// CONFIG FOR SWEETALERT TO PREVENT LAYOUT SHIFT
+/* ==================== GLOBAL VARIABLES ==================== */
+// CONFIG FOR SWEETALERT
 const swal = Swal.mixin({
     heightAuto: false,
     scrollbarPadding: false,
@@ -7,17 +8,320 @@ const swal = Swal.mixin({
     confirmButtonColor: '#ff2e63'
 });
 
-let currentTags = [];
+let allAvailableTags = []; // Cached list from DB
+let currentTags = [];      // Selected tags for current franchise
+
+// UI References (Initialized in onload)
+let tagInput = null;
+let suggestBox = null;
+
 let currentCategory = 'movie';
 let currentFilter = 'all';
 
+/* ==================== INITIALIZATION ==================== */
 window.onload = () => {
+    // 1. Initialize UI References (Safe because DOM is ready now)
+    tagInput = document.getElementById('tagSearchInput');
+    suggestBox = document.getElementById('tagSuggestions');
+
+    // 2. Attach Tag Search Listeners
+    if (tagInput) {
+        // Typing Listener
+        tagInput.addEventListener('input', (e) => {
+            const val = e.target.value.toLowerCase().trim();
+            if (val.length < 1) {
+                showAllTags(); // Show all if cleared
+                return;
+            }
+            // Filter
+            const matches = allAvailableTags.filter(t => 
+                t.name.toLowerCase().includes(val) && 
+                !currentTags.some(sel => sel.name === t.name)
+            );
+            renderSuggestions(matches);
+        });
+
+        // Enter Key Listener
+        tagInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addNewTagFromInput();
+            }
+        });
+    }
+
+    // 3. Global Click Listener (Close dropdown)
+    document.addEventListener('click', (e) => {
+        if (suggestBox && !e.target.closest('.tag-search-wrapper')) {
+            suggestBox.classList.add('hidden');
+        }
+    });
+
+    // 4. Initial Data Load
     searchContent();
     loadTagSuggestions();
+    
+    // 5. Initialize Default Cards
     addQuoteItem();
     addCharItem();
     addBannerItem();
 };
+
+/* ==================== TAG MANAGEMENT ==================== */
+
+// 1. LOAD TAG SUGGESTIONS FROM SERVER
+async function loadTagSuggestions() {
+    try {
+        const res = await fetch('/api/tags');
+        if (res.ok) {
+            allAvailableTags = await res.json();
+            console.log('Loaded tags:', allAvailableTags);
+        }
+    } catch (err) {
+        console.error("Failed to load tags", err);
+    }
+}
+
+// 2. SEARCH & SUGGEST TAGS
+function showAllTags() {
+    // Ensure we filter out tags that are ALREADY added to this movie
+    const available = allAvailableTags.filter(t => 
+        !currentTags.some(sel => sel.name === t.name)
+    );
+    renderSuggestions(available);
+}
+
+function renderSuggestions(matches) {
+    if (!suggestBox) return; // Safety check
+
+    suggestBox.innerHTML = '';
+    
+    // CASE 1: No matches -> Suggest Creating New
+    if (matches.length === 0) {
+        const val = tagInput ? tagInput.value.trim() : '';
+        if (val) {
+            suggestBox.innerHTML = `
+                <div class="suggestion-item" onclick="addNewTagFromInput()" style="color:var(--primary);">
+                    <i class="fa-solid fa-plus"></i> Create "<strong>${val}</strong>"
+                </div>`;
+            suggestBox.classList.remove('hidden');
+        } else {
+            suggestBox.classList.add('hidden');
+        }
+        return;
+    }
+
+    // CASE 2: List matches
+    matches.forEach(tag => {
+        const div = document.createElement('div');
+        div.className = 'suggestion-item';
+        div.innerHTML = `<span>${tag.name}</span>`;
+        div.onclick = () => {
+            addTagToSelection(tag.name, 50); // Default weight 50
+            if(tagInput) tagInput.value = '';
+            suggestBox.classList.add('hidden');
+        };
+        suggestBox.appendChild(div);
+    });
+    suggestBox.classList.remove('hidden');
+}
+
+function addNewTagFromInput() {
+    if (!tagInput) return;
+    const val = tagInput.value.trim();
+    if (!val) return;
+    
+    // Check duplicates in current selection
+    if (currentTags.some(t => t.name.toLowerCase() === val.toLowerCase())) {
+        swal.fire('Duplicate', 'Tag already added', 'warning');
+        return;
+    }
+
+    addTagToSelection(val, 50);
+    tagInput.value = '';
+    if(suggestBox) suggestBox.classList.add('hidden');
+}
+
+// 4. ADD TAG TO SELECTION
+function addTagToSelection(name, weight) {
+    currentTags.push({ name: name, weight: weight });
+    renderTagList();
+}
+
+// 5. REMOVE TAG
+function removeTag(index) {
+    currentTags.splice(index, 1);
+    renderTagList();
+}
+
+// 6. UPDATE TAG WEIGHT
+function updateTagWeight(index, newWeight) {
+    const weight = parseInt(newWeight) || 0;
+    // Clamp between 1-100
+    currentTags[index].weight = Math.max(1, Math.min(100, weight));
+    renderTagList(); // Re-render to show clamped value
+}
+
+// 7. RENDER TAG LIST
+function renderTagList() {
+    const list = document.getElementById('selectedTagsList');
+    if (!list) return;
+    list.innerHTML = '';
+
+    currentTags.forEach((tag, index) => {
+        const row = document.createElement('div');
+        row.className = 'tag-row';
+        row.innerHTML = `
+            <button class="btn-remove-tag" onclick="removeTag(${index})" title="Remove from this content">
+                <i class="fa-solid fa-xmark"></i> 
+            </button>
+            
+            <span class="tag-name">${tag.name}</span>
+            
+            <input type="number" class="tag-weight-input" value="${tag.weight}" 
+                   min="1" max="100" 
+                   onchange="updateTagWeight(${index}, this.value)">
+        `;
+        list.appendChild(row);
+    });
+}
+
+/* --- 2. TAG MANAGER LOGIC --- */
+
+function openTagManager() {
+    const modal = document.getElementById('tagManagerModal');
+    if(modal) {
+        modal.classList.remove('hidden');
+        loadManagerList();
+    }
+}
+
+function closeTagManager() {
+    document.getElementById('tagManagerModal').classList.add('hidden');
+}
+
+function loadManagerList() {
+    const list = document.getElementById('managerList');
+    list.innerHTML = '<div style="color:#666; text-align:center; padding:10px;">Loading...</div>';
+    
+    fetch('/api/tags')
+        .then(res => res.json())
+        .then(tags => {
+            allAvailableTags = tags; // Refresh global cache
+            filterManagerList();     // Render list
+        });
+}
+
+function clearManagerSearch() {
+    const input = document.getElementById('managerSearch');
+    input.value = '';
+    input.focus();
+    filterManagerList();
+}
+
+function filterManagerList() {
+    const input = document.getElementById('managerSearch');
+    const query = input ? input.value.toLowerCase() : '';
+    const list = document.getElementById('managerList');
+    list.innerHTML = '';
+
+    const matches = allAvailableTags.filter(t => t.name.toLowerCase().includes(query));
+
+    if (matches.length === 0) {
+        list.innerHTML = '<div style="padding:10px; color:#666; text-align:center;">No tags found.</div>';
+        return;
+    }
+
+    matches.forEach(tag => {
+        const div = document.createElement('div');
+        div.className = 'manager-item';
+        div.style.cssText = 'display:flex; justify-content:space-between; align-items:center; background:#222; padding:10px; border-radius:6px; margin-bottom:5px;';
+        div.innerHTML = `
+            <span style="color:#ccc;">${tag.name}</span>
+            <button onclick="deleteTagGlobal(${tag.id}, '${tag.name}')" style="background:#3a1d1d; color:#ff2e63; border:1px solid #ff2e63; padding:5px 10px; border-radius:4px; cursor:pointer;">
+                <i class="fa-solid fa-trash"></i>
+            </button>
+        `;
+        list.appendChild(div);
+    });
+}
+
+/* --- 3. DOUBLE CONFIRMATION DELETE --- */
+function deleteTagGlobal(id, name) {
+    // ALERT 1: First Warning
+    swal.fire({
+        title: `Delete '${name}'?`,
+        text: "This tag will be permanently deleted from the database.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        confirmButtonText: 'Yes, proceed'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            
+            // ALERT 2: Second Warning (Critical)
+            swal.fire({
+                title: 'Are you absolutely sure?',
+                text: `This will remove '${name}' from ALL movies, series, and games that use it. This cannot be undone.`,
+                icon: 'error',
+                background: '#111', // Dark background for emphasis
+                color: '#fff',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                confirmButtonText: 'I understand, DELETE IT'
+            }).then((finalResult) => {
+                if (finalResult.isConfirmed) {
+                    performGlobalDelete(id);
+                }
+            });
+        }
+    });
+}
+
+function performGlobalDelete(id) {
+    swal.fire({ title: 'Deleting...', didOpen: () => Swal.showLoading() });
+    
+    fetch(`/api/tags/${id}`, { method: 'DELETE' })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                swal.fire('Deleted', 'Tag removed from database.', 'success');
+                
+                // 1. Refresh Manager List
+                loadManagerList(); 
+                
+                // 2. Check if this tag was selected in the current form and remove it
+                // We need to find the name first since currentTags stores names
+                const deletedTag = allAvailableTags.find(t => t.id === id);
+                if (deletedTag) {
+                    const idx = currentTags.findIndex(t => t.name === deletedTag.name);
+                    if (idx !== -1) {
+                        currentTags.splice(idx, 1);
+                        renderTagList();
+                    }
+                }
+
+                // 3. Refresh Global Autocomplete Cache
+                loadTagSuggestions(); 
+
+            } else {
+                swal.fire('Error', 'Failed to delete tag.', 'error');
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            swal.fire('Error', 'Network error.', 'error');
+        });
+}
+
+// Helper to escape HTML to prevent XSS
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+/* ==================== CONTENT MANAGEMENT ==================== */
 
 // --- 1. SEARCH & LIST ---
 function filterList(type, el) {
@@ -46,7 +350,23 @@ async function searchContent() {
                     <span class="item-spacer"></span>
                     <i class="fa-solid ${icon} item-icon"></i>
                 `;
-        div.onclick = () => loadEdit(item);
+        // Fetch full franchise data when clicked (to get tags with weights)
+        div.onclick = async () => {
+            const franchiseId = item.id || item._id;
+            if (franchiseId) {
+                try {
+                    const response = await fetch(`/api/admin/franchise/${franchiseId}`);
+                    const fullData = await response.json();
+                    loadEdit(fullData);
+                } catch (err) {
+                    console.error('Failed to load franchise:', err);
+                    // Fallback to original data
+                    loadEdit(item);
+                }
+            } else {
+                loadEdit(item);
+            }
+        };
         list.appendChild(div);
     });
 }
@@ -94,6 +414,10 @@ function addQuoteItem(data = {}) {
     const domId = uuid();
     const id = data.id || domId; // This is used for DOM ID
     const dbId = data.id || '';  // This is the actual Database ID
+    
+    // Use media_path from database
+    const mediaPath = data.media_path || data.path || '';
+    const stopTime = data.stop_time || data.stop || '';
 
     const html = `
         <div class="card quote-card" id="${id}">
@@ -104,18 +428,18 @@ function addQuoteItem(data = {}) {
                     <i class="fa-solid fa-trash"></i>
                 </button>
 
-                <div class="placeholder-text video-ph" style="${data.path ? 'display:none' : ''}">
+                <div class="placeholder-text video-ph" style="${mediaPath ? 'display:none' : ''}">
                     <i class="fa-solid fa-film"></i> No Video
                 </div>
-                <video class="vid-preview" controls src="${data.path || ''}" style="${data.path ? 'display:block' : 'display:none'}"></video>
+                <video class="vid-preview" controls src="${mediaPath}" style="${mediaPath ? 'display:block' : 'display:none'}"></video>
                 
                 <button class="btn-upload" onclick="triggerUpload('${id}', '.file-video')">
                     <i class="fa-solid fa-upload"></i>
                 </button>
             </div>
             <input type="file" class="file-video" accept="video/*" hidden onchange="handleListVideo(this, '${id}')">
-            <input type="text" class="form-input inp-time" placeholder="Stop Time (e.g. 14.5)" value="${data.stop || ''}">
-            <input type="text" class="form-input inp-quote" class="inp-answer" placeholder="Correct Quote" value="${data.answer || ''}">
+            <input type="text" class="form-input inp-time" placeholder="Stop Time (e.g. 14.5)" value="${stopTime}">
+            <input type="text" class="form-input inp-quote inp-answer" placeholder="Correct Quote" value="${data.answer || ''}">
             </div>
     `;
     document.getElementById('list-quotes').insertAdjacentHTML('beforeend', html);
@@ -125,7 +449,13 @@ function addCharItem(data = {}) {
     const domId = uuid();
     const id = data.id || domId;
     const dbId = data.id || ''; 
-    const level = data.level !== undefined ? data.level * 100 : 100;
+    
+    // Use pixel_level from database (already 0-1, multiply by 100 for display)
+    const pixelLevel = data.pixel_level !== undefined ? data.pixel_level : 1.0;
+    const level = pixelLevel * 100;
+    
+    // Use media_path from database
+    const mediaPath = data.media_path || data.path || '';
 
     const html = `
         <div class="card char-card" id="${id}">
@@ -161,14 +491,20 @@ function addCharItem(data = {}) {
         </div>
     `;
     document.getElementById('list-chars').insertAdjacentHTML('beforeend', html);
-    if (data.path) loadListImage(id, data.path, data.level);
+    if (mediaPath) loadListImage(id, mediaPath, pixelLevel);
 }
 
 function addBannerItem(data = {}) {
     const domId = uuid();
     const id = data.id || domId;
     const dbId = data.id || ''; 
-    const level = data.level !== undefined ? data.level * 100 : 100;
+    
+    // Use pixel_level from database (already 0-1, multiply by 100 for display)
+    const pixelLevel = data.pixel_level !== undefined ? data.pixel_level : 1.0;
+    const level = pixelLevel * 100;
+    
+    // Use media_path from database
+    const mediaPath = data.media_path || data.path || '';
 
     const html = `
         <div class="card banner-card" id="${id}">
@@ -203,218 +539,215 @@ function addBannerItem(data = {}) {
         </div>
     `;
     document.getElementById('list-banners').insertAdjacentHTML('beforeend', html);
-    if (data.path) loadListImage(id, data.path, data.level);
+    if (mediaPath) loadListImage(id, mediaPath, pixelLevel);
 }
 
-// --- 3. MEDIA HANDLING ---
+// --- 3. UPLOAD TRIGGER ---
 function triggerUpload(cardId, selector) {
-    // FIX: Use getElementById to safely handle numeric IDs (e.g. "1")
     const card = document.getElementById(cardId);
-    if (card) {
-        card.querySelector(selector).click();
-    }
+    const input = card.querySelector(selector);
+    if (input) input.click();
 }
 
+// --- 4. LIST VIDEO HANDLER ---
 function handleListVideo(input, cardId) {
-    const f = input.files[0];
-    if (f) {
-        const card = document.getElementById(cardId);
-        card.querySelector('.video-ph').style.display = 'none';
-        const v = card.querySelector('.vid-preview');
-        v.style.display = 'block';
-        v.src = URL.createObjectURL(f);
-    }
-}
-function loadListVideo(cardId, path) {
     const card = document.getElementById(cardId);
-    card.querySelector('.video-ph').style.display = 'none';
-    const v = card.querySelector('.vid-preview');
-    v.style.display = 'block';
-    v.src = path;
+    const video = card.querySelector('.vid-preview');
+    const ph = card.querySelector('.video-ph');
+    const file = input.files[0];
+
+    if (file) {
+        const url = URL.createObjectURL(file);
+        video.src = url;
+        video.style.display = 'block';
+        ph.style.display = 'none';
+    }
 }
 
+// --- 5. LIST IMAGE HANDLER ---
 function handleListImage(input, cardId) {
-    const f = input.files[0];
-    if (f) {
-        const card = document.getElementById(cardId);
-        const raw = card.querySelector('.raw-preview');
-        raw.src = URL.createObjectURL(f);
-        raw.onload = () => {
-            card.querySelector('.img-ph').style.display = 'none';
-            card.querySelector('.cv-preview').style.display = 'block';
-            syncListPixel(cardId, 100);
-        };
-    }
+    const file = input.files[0];
+    if (!file) return;
+
+    const card = document.getElementById(cardId);
+    const ph = card.querySelector('.img-ph');
+    const rawImg = card.querySelector('.raw-preview');
+    const canvas = card.querySelector('.cv-preview');
+    const pixelInput = card.querySelector('.rng-pixel');
+
+    const level = pixelInput ? (pixelInput.value / 100) : 1.0;
+
+    const img = new Image();
+    img.onload = function () {
+        rawImg.src = img.src;
+        rawImg.style.display = 'none';
+
+        applyPixel(img, canvas, level);
+        canvas.style.display = 'block';
+        ph.style.display = 'none';
+    };
+    img.src = URL.createObjectURL(file);
 }
+
+// --- 6. LOAD LIST IMAGE FROM EXISTING PATH ---
 function loadListImage(cardId, path, level) {
     const card = document.getElementById(cardId);
-    const raw = card.querySelector('.raw-preview');
-    raw.src = path;
-    raw.onload = () => {
-        card.querySelector('.img-ph').style.display = 'none';
-        card.querySelector('.cv-preview').style.display = 'block';
-        const val = level ? level * 100 : 100;
-        syncListPixel(cardId, val);
+    const ph = card.querySelector('.img-ph');
+    const rawImg = card.querySelector('.raw-preview');
+    const canvas = card.querySelector('.cv-preview');
+
+    const img = new Image();
+    img.onload = function () {
+        rawImg.src = img.src;
+        rawImg.style.display = 'none';
+
+        applyPixel(img, canvas, level || 1.0);
+        canvas.style.display = 'block';
+        ph.style.display = 'none';
     };
+    img.src = path;
 }
 
+// --- 7. PIXEL SYNC (RANGE <-> NUMBER) ---
 function syncListPixel(cardId, val) {
-    val = parseInt(val);
-    if (val > 100) val = 100; if (val < 1) val = 1;
-
     const card = document.getElementById(cardId);
-    card.querySelector('.rng-pixel').value = val;
-    card.querySelector('.num-pixel').value = val;
+    const range = card.querySelector('.rng-pixel');
+    const number = card.querySelector('.num-pixel');
 
-    const raw = card.querySelector('.raw-preview');
-    const cv = card.querySelector('.cv-preview');
-    const ctx = cv.getContext('2d');
+    if (range) range.value = val;
+    if (number) number.value = val;
 
-    if (!raw.src) return;
-
-    cv.width = raw.naturalWidth;
-    cv.height = raw.naturalHeight;
-
-    const targetLevel = val / 100;
-
-    if (targetLevel >= 0.95) {
-        ctx.drawImage(raw, 0, 0);
-    } else {
-        const MAX_BLOCK_SIZE = 50;
-
-        // --- UPDATED MATH (MATCHES SERVER) ---
-        // Removed Math.sqrt to keep the last steps from being too clear
-        let pixelSize = Math.floor(MAX_BLOCK_SIZE * (1.0 - targetLevel));
-        
-        pixelSize = Math.max(2, pixelSize);
-
-        const reducedWidth = Math.max(1, Math.round(cv.width / pixelSize));
-        const reducedHeight = Math.max(1, Math.round(cv.height / pixelSize));
-
-        ctx.imageSmoothingEnabled = true; // Use smooth downscaling
-        ctx.drawImage(raw, 0, 0, reducedWidth, reducedHeight);
-
-        ctx.imageSmoothingEnabled = false; // Use nearest-neighbor upscaling
-        ctx.drawImage(cv, 0, 0, reducedWidth, reducedHeight, 0, 0, cv.width, cv.height);
+    // Re-apply Pixelation
+    const rawImg = card.querySelector('.raw-preview');
+    const canvas = card.querySelector('.cv-preview');
+    if (rawImg && rawImg.src && canvas) {
+        applyPixel(rawImg, canvas, val / 100);
     }
 }
 
-// --- 4. LOAD & RESET ---
-function loadEdit(item) {
-    resetForm();
-    document.getElementById('editContentId').value = item.id;
-    setCategory(item.category);
-    document.getElementById('metaTitle').value = item.title;
+// --- 8. APPLY PIXEL ---
+function applyPixel(img, canvas, level) {
+    const ctx = canvas.getContext('2d');
+    const w = img.naturalWidth || img.width;
+    const h = img.naturalHeight || img.height;
 
-    // Show Delete Button (now located in the header)
-    document.getElementById('btnDelete').style.display = 'flex';
+    const scale = Math.max(0.01, level);
+    const smallW = Math.floor(w * scale);
+    const smallH = Math.floor(h * scale);
 
-    // Loop through questions...
-    document.getElementById('list-quotes').innerHTML = '';
-    document.getElementById('list-chars').innerHTML = '';
-    document.getElementById('list-banners').innerHTML = '';
+    canvas.width = w;
+    canvas.height = h;
 
-    item.questions.forEach(q => {
-        if (q.type === 'quote') {
-            addQuoteItem({ id: q.id, path: q.media_path, stop: q.stop_time, answer: q.answer });
-        } else if (q.type === 'character') {
-            addCharItem({ id: q.id, path: q.media_path, answer: q.answer, level: q.pixel_level });
-        } else if (q.type === 'banner') {
-            addBannerItem({ id: q.id, path: q.media_path, level: q.pixel_level });
-        }
-    });
-
-    // Add empty cards if needed
-    if (document.getElementById('list-quotes').children.length === 0) addQuoteItem();
-    if (document.getElementById('list-chars').children.length === 0) addCharItem();
-    if (document.getElementById('list-banners').children.length === 0) addBannerItem();
-
-    currentTags = item.tags || [];
-    renderTags();
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, 0, 0, smallW, smallH);
+    ctx.drawImage(canvas, 0, 0, smallW, smallH, 0, 0, w, h);
 }
 
+// --- 9. LOAD EDIT FROM LIST ---
+function loadEdit(item) {
+    // Scroll to main stage (no 'editor' element exists)
+    const mainStage = document.querySelector('.main-stage');
+    if (mainStage) {
+        mainStage.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // Use correct element IDs from HTML
+    const editContentId = document.getElementById('editContentId');
+    const metaTitle = document.getElementById('metaTitle'); // Correct ID
+    
+    if (editContentId) editContentId.value = item._id || item.id || '';
+    if (metaTitle) metaTitle.value = item.title || '';
+
+    // Set Category
+    setCategory(item.category);
+
+    // Clear Existing Lists
+    const listQuotes = document.getElementById('list-quotes');
+    const listChars = document.getElementById('list-chars');
+    const listBanners = document.getElementById('list-banners');
+    
+    if (listQuotes) listQuotes.innerHTML = '';
+    if (listChars) listChars.innerHTML = '';
+    if (listBanners) listBanners.innerHTML = '';
+
+    // Populate Tags (NEW STRUCTURE)
+    currentTags = item.tags || [];
+    renderTagList();
+
+    // Populate Content
+    if (item.content && item.content.length > 0) {
+        item.content.forEach(c => {
+            if (c.type === 'quote') addQuoteItem(c);
+            if (c.type === 'character') addCharItem(c);
+            if (c.type === 'banner') addBannerItem(c);
+        });
+    }
+
+    // Show delete button when editing existing content
+    const btnDelete = document.getElementById('btnDelete');
+    if (btnDelete && (item._id || item.id)) {
+        btnDelete.style.display = 'block';
+    }
+
+    // Focus title input
+    if (metaTitle) {
+        setTimeout(() => metaTitle.focus(), 100);
+    }
+}
+
+// --- 10. RESET FORM ---
 function resetForm() {
-    document.getElementById('editContentId').value = '';
-    document.getElementById('metaTitle').value = '';
-    document.getElementById('tagInput').value = '';
+    const editContentId = document.getElementById('editContentId');
+    const metaTitle = document.getElementById('metaTitle'); // Correct ID
+    
+    if (editContentId) editContentId.value = '';
+    if (metaTitle) metaTitle.value = '';
 
-    document.getElementById('list-quotes').innerHTML = '';
-    document.getElementById('list-chars').innerHTML = '';
-    document.getElementById('list-banners').innerHTML = '';
+    const listQuotes = document.getElementById('list-quotes');
+    const listChars = document.getElementById('list-chars');
+    const listBanners = document.getElementById('list-banners');
+    
+    if (listQuotes) listQuotes.innerHTML = '';
+    if (listChars) listChars.innerHTML = '';
+    if (listBanners) listBanners.innerHTML = '';
 
-    document.getElementById('tagContainer').innerHTML = '';
+    currentTags = [];
+    renderTagList();
 
-    document.getElementById('btnSaveText').innerText = 'Save Movie';
+    if (tagInput) tagInput.value = '';
+    if (suggestBox) suggestBox.classList.add('hidden');
 
-    // Hide delete button (Updated ID reference)
+    // Hide delete button when creating new
     const btnDelete = document.getElementById('btnDelete');
     if (btnDelete) btnDelete.style.display = 'none';
+
+    setCategory('movie');
+    addQuoteItem();
+    addCharItem();
+    addBannerItem();
 }
 
-// --- 5. TAGS ---
-async function loadTagSuggestions() {
-    const input = document.getElementById('tagInput');
-    input.addEventListener('input', async () => {
-        const res = await fetch(`/api/admin/tags?q=${input.value}`);
-        const tags = await res.json();
-        const dl = document.getElementById('tagListSuggestions');
-        dl.innerHTML = '';
-        tags.forEach(t => dl.appendChild(new Option(t)));
-    });
-}
-function addTag() {
-    const v = document.getElementById('tagInput').value.trim();
-    if (v && !currentTags.includes(v)) {
-        currentTags.push(v);
-        renderTags();
-        document.getElementById('tagInput').value = '';
-    }
-}
-function renderTags() {
-    const c = document.getElementById('tagContainer');
-    c.innerHTML = '';
-    currentTags.forEach(t => {
-        const tag = document.createElement('div');
-        tag.className = 'tag-chip';
-        tag.innerHTML = `${t} <span onclick="removeTag('${t}')">&times;</span>`;
-        c.appendChild(tag);
-    });
-}
-function removeTag(t) { currentTags = currentTags.filter(x => x !== t); renderTags(); }
-
-// Helper to visually alert the user to the specific input
-function highlightError(inputElement) {
-    if (!inputElement) return;
-    
-    // Scroll to the empty input so the user sees it
-    inputElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    
-    // Add visual error styles (Shake + Red Border)
-    inputElement.classList.add('shake');
-    inputElement.style.borderColor = '#ff2e63';
-    
-    // Remove styles after animation
-    setTimeout(() => {
-        inputElement.classList.remove('shake');
-        inputElement.style.borderColor = '';
-    }, 2000);
+// --- 11. SAVE CONTENT ---
+function highlightError(element) {
+    if (!element) return;
+    element.classList.add('error-highlight');
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => element.classList.remove('error-highlight'), 3000);
 }
 
-// --- 6. SAVE (FIXED: Loader only appears after validation passes) ---
 async function saveContent() {
-    // 1. Validate Main Title
-    const titleInput = document.getElementById('metaTitle');
-    const titleVal = titleInput.value.trim();
+    const metaTitle = document.getElementById('metaTitle'); // Correct ID
+    const titleVal = metaTitle ? metaTitle.value.trim() : '';
 
     if (!titleVal) {
-        highlightError(titleInput);
         swal.fire({
-            icon: 'error',
+            icon: 'warning',
             title: 'Missing Title',
-            text: 'Please enter a Franchise Title before saving.',
+            text: 'Please enter a title for this content.',
             confirmButtonText: 'OK',
             showConfirmButton: true
         });
+        if (metaTitle) metaTitle.focus();
         return;
     }
 
@@ -431,7 +764,7 @@ async function saveContent() {
     const category = activeBtn ? activeBtn.innerText.toLowerCase() : 'movie';
     formData.append('category', category);
 
-    // Tags
+    // Tags (NEW STRUCTURE: Array of {name, weight})
     formData.append('tags', JSON.stringify(currentTags)); 
 
     const contentItems = [];

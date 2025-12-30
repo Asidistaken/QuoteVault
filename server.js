@@ -173,11 +173,31 @@ app.get('/api/admin/search', (req, res) => {
     });
 });
 
+// Get all tags for suggestions (NEW: returns array of {id, name})
+app.get('/api/tags', (req, res) => {
+    db.all('SELECT id, name FROM tags ORDER BY name', [], (err, rows) => {
+        if (err) return res.status(500).json([]);
+        res.json(rows || []);
+    });
+});
+
+// Keep old endpoint for backward compatibility
 app.get('/api/admin/tags', (req, res) => {
     const { q } = req.query;
     db.all(`SELECT name FROM tags WHERE name LIKE ? LIMIT 10`, [`%${q}%`], (err, rows) => {
         if (err) return res.json([]);
         res.json(rows.map(r => r.name));
+    });
+});
+
+// DELETE TAG GLOBALLY
+app.delete('/api/tags/:id', (req, res) => {
+    const id = req.params.id;
+    
+    // Cascading delete handles removing it from franchise_tags automatically
+    db.run('DELETE FROM tags WHERE id = ?', [id], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ success: true });
     });
 });
 
@@ -193,20 +213,55 @@ app.post('/api/admin/content', uploadAny, async (req, res) => {
     const handleTags = async (franchiseId, tagString) => {
         if (!tagString) return;
         let tagList = [];
-        try { tagList = JSON.parse(tagString); } catch (e) { }
+        try { 
+            tagList = JSON.parse(tagString); 
+        } catch (e) { 
+            console.error('Failed to parse tags:', e);
+            return;
+        }
 
+        // Clear old tags
         await new Promise(r => db.run(`DELETE FROM franchise_tags WHERE franchise_id = ?`, [franchiseId], r));
 
-        for (const tagName of tagList) {
+        // Process each tag object {name, weight}
+        for (const tagObj of tagList) {
+            const tagName = typeof tagObj === 'string' ? tagObj : tagObj.name;
+            const tagWeight = typeof tagObj === 'object' ? (tagObj.weight || 50) : 50;
+            
             const clean = tagName.trim();
             if (!clean) continue;
-            let tagId = await new Promise(resolve => {
+
+            // Find or create tag
+            const tagId = await new Promise(resolve => {
                 db.get(`SELECT id FROM tags WHERE name = ?`, [clean], (err, row) => {
-                    if (row) resolve(row.id);
-                    else db.run(`INSERT INTO tags (name) VALUES (?)`, [clean], function () { resolve(this.lastID); });
+                    if (row) {
+                        resolve(row.id);
+                    } else {
+                        db.run(`INSERT INTO tags (name) VALUES (?)`, [clean], function (err) {
+                            if (err) {
+                                console.error('Failed to insert tag:', err);
+                                resolve(null);
+                            } else {
+                                resolve(this.lastID);
+                            }
+                        });
+                    }
                 });
             });
-            db.run(`INSERT INTO franchise_tags (franchise_id, tag_id) VALUES (?, ?)`, [franchiseId, tagId]);
+
+            // Link tag to franchise with weight
+            if (tagId) {
+                await new Promise(resolve => {
+                    db.run(
+                        `INSERT INTO franchise_tags (franchise_id, tag_id, weight) VALUES (?, ?, ?)`,
+                        [franchiseId, tagId, tagWeight],
+                        (err) => {
+                            if (err) console.error('Failed to link tag:', err);
+                            resolve();
+                        }
+                    );
+                });
+            }
         }
     };
 
@@ -335,6 +390,59 @@ app.delete('/api/admin/franchise/:id', (req, res) => {
         });
     });
 });
+
+// --- ROUTE: GET FRANCHISE FOR EDITING (WITH TAG WEIGHTS) ---
+app.get('/api/admin/franchise/:id', (req, res) => {
+    if (!req.session.userId || !req.session.isAdmin) {
+        return res.status(403).json({ error: "Access Denied" });
+    }
+
+    const franchiseId = req.params.id;
+
+    // Get franchise data
+    db.get('SELECT * FROM franchises WHERE id = ?', [franchiseId], (err, franchise) => {
+        if (err || !franchise) {
+            return res.status(404).json({ error: 'Franchise not found' });
+        }
+
+        // Get tags WITH weights
+        const tagQuery = `
+            SELECT t.name, ft.weight 
+            FROM tags t
+            JOIN franchise_tags ft ON t.id = ft.tag_id
+            WHERE ft.franchise_id = ?
+            ORDER BY t.name
+        `;
+        
+        db.all(tagQuery, [franchiseId], (err, tags) => {
+            if (err) {
+                console.error('Error fetching tags:', err);
+                tags = [];
+            }
+
+            // Get content/questions
+            db.all('SELECT * FROM questions WHERE franchise_id = ? ORDER BY id', [franchiseId], (err, content) => {
+                if (err) {
+                    console.error('Error fetching content:', err);
+                    content = [];
+                }
+
+                // Build response
+                const response = {
+                    _id: franchise.id,
+                    id: franchise.id,
+                    title: franchise.title,
+                    category: franchise.category,
+                    tags: tags || [], // Returns [{name: 'Action', weight: 80}, ...]
+                    content: content || []
+                };
+
+                res.json(response);
+            });
+        });
+    });
+});
+
 
 // --- ROUTES: GAME LOGIC ---
 /* --- UPDATED: DECOUPLED SELECTION LOGIC --- */

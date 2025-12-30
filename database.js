@@ -48,8 +48,7 @@ db.serialize(() => {
     // 4. Tags
     db.run(`CREATE TABLE IF NOT EXISTS tags (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT UNIQUE,
-        weight REAL DEFAULT 1.0
+        name TEXT UNIQUE
     )`);
 
     // 5. Franchise_Tags (Replaces Question_Tags)
@@ -57,6 +56,7 @@ db.serialize(() => {
     db.run(`CREATE TABLE IF NOT EXISTS franchise_tags (
         franchise_id INTEGER,
         tag_id INTEGER,
+        weight INTEGER DEFAULT 50, 
         FOREIGN KEY(franchise_id) REFERENCES franchises(id) ON DELETE CASCADE,
         FOREIGN KEY(tag_id) REFERENCES tags(id) ON DELETE CASCADE
     )`);

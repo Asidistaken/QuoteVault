@@ -106,18 +106,51 @@
                 <input type="text" class="form-input" id="metaTitle" placeholder="Franchise Title (e.g. Breaking Bad)"
                     style="margin-bottom:15px;">
 
-                <div class="card-label" style="text-align:left; margin-bottom:10px;">Tags & Genre</div>
-                <div class="tag-input-group">
-                    <input type="text" class="form-input" id="tagInput" list="tagListSuggestions"
-                        placeholder="Add tag...">
-                    <datalist id="tagListSuggestions"></datalist>
-                    <button class="btn-new"
-                        style="margin:0; width:50px; padding:0; display:flex; align-items:center; justify-content:center;"
-                        onclick="addTag()">
-                        <i class="fa-solid fa-plus"></i>
+
+
+                <div class="card-label"
+                    style="text-align:left; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+                    <span>Tags & Weight</span>
+                    <button class="btn-new" onclick="openTagManager()"
+                        style="width:auto; padding:4px 10px; font-size:0.7rem;">
+                        <i class="fa-solid fa-list"></i> Manage DB
                     </button>
                 </div>
-                <div class="tag-list" id="tagContainer"></div>
+
+                <div class="tag-search-wrapper" style="position:relative; margin-bottom:10px;">
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" class="form-input" id="tagSearchInput" placeholder="Search or create..."
+                            autocomplete="off" onfocus="showAllTags()">
+                    </div>
+                    <div id="tagSuggestions" class="tag-dropdown hidden"></div>
+                </div>
+
+                <div class="tag-list-container" id="selectedTagsList"></div>
+
+
+                <div id="tagManagerModal" class="modal-overlay hidden">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3>Global Tag Manager</h3>
+                            <button class="btn-close-modal" onclick="closeTagManager()"><i
+                                    class="fa-solid fa-times"></i></button>
+                        </div>
+                        <div class="modal-body">
+                            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                                <input type="text" class="form-input" id="managerSearch"
+                                    placeholder="Search all tags in DB..." onkeyup="filterManagerList()">
+
+                                <button class="btn-new" onclick="clearManagerSearch()" title="Clear Search"
+                                    style="width: 50px; padding:0; display:flex; align-items:center; justify-content:center;">
+                                    <i class="fa-solid fa-eraser"></i>
+                                </button>
+                            </div>
+                            <div class="manager-list" id="managerList"></div>
+                        </div>
+                    </div>
+                </div>
+
+
             </div>
 
             <div style="margin-top: auto;">
