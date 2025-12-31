@@ -688,7 +688,7 @@ video {
     }
 
     .slots-container {
-        gap: 4px 6px;
+        gap: 5px 10px;
     }
 
     .char-slot {
@@ -805,12 +805,16 @@ video {
     flex-wrap: wrap;
     gap: 10px 20px;
     justify-content: center;
-    padding: 0;
+    padding: 0 10px;
+    width: 100%;
+    max-width: 100%;
 }
 
 .word-group {
     display: flex;
     gap: 4px;
+    flex-wrap: wrap;
+    justify-content: center;
 }
 
 .char-slot {
