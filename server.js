@@ -6,7 +6,6 @@ const path = require('path');
 const fs = require('fs');
 const db = require('./database');
 const sharp = require('sharp');
-const photon = require('@silvia-odwyer/photon-node');
 
 const { generateRecommendations } = require('./geminiRecommend');
 

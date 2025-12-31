@@ -145,3 +145,7 @@ server/quotevault-old.db
 quotevault.db
 *.db
 quotevault.db
+
+public/uploads/
+
+.DS_Store

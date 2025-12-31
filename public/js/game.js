@@ -555,11 +555,11 @@ function checkAnswer() {
 
                 if (!isDragMode) {
                     if (window.currentMode === 'quote') {
-                        // DRAG DROP AFTER 5 ATTEMPTS
+                        // DRAG DROP AFTER X ATTEMPTS
                         if (state.attempts >= 5) window.revealHint(true);
                     } else {
-                        // IMAGE HELP AFTER 3 ATTEMPTS
-                        if (state.attempts >= 3) {
+                        // IMAGE HELP AFTER X ATTEMPTS
+                        if (state.attempts >= 0) {
                             window.revealHint(true); 
                         }
                     }
