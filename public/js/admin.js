@@ -191,13 +191,30 @@ function renderTagList() {
 function openTagManager() {
     const modal = document.getElementById('tagManagerModal');
     if(modal) {
+        // 1. Unhide (display: flex)
         modal.classList.remove('hidden');
+        
+        // 2. Trigger Animation (opacity: 1)
+        // Small delay ensures the browser processes 'display: flex' before fading in
+        setTimeout(() => {
+            modal.classList.add('active');
+        }, 10);
+        
         loadManagerList();
     }
 }
 
 function closeTagManager() {
-    document.getElementById('tagManagerModal').classList.add('hidden');
+    const modal = document.getElementById('tagManagerModal');
+    if(!modal) return;
+
+    // 1. Fade Out
+    modal.classList.remove('active');
+
+    // 2. Hide after animation (0.3s matches css transition)
+    setTimeout(() => {
+        modal.classList.add('hidden');
+    }, 300);
 }
 
 function loadManagerList() {

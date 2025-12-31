@@ -195,9 +195,9 @@ app.get('/api/admin/tags', (req, res) => {
 // DELETE TAG GLOBALLY
 app.delete('/api/tags/:id', (req, res) => {
     const id = req.params.id;
-    
+
     // Cascading delete handles removing it from franchise_tags automatically
-    db.run('DELETE FROM tags WHERE id = ?', [id], function(err) {
+    db.run('DELETE FROM tags WHERE id = ?', [id], function (err) {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ success: true });
     });
@@ -215,9 +215,9 @@ app.post('/api/admin/content', uploadAny, async (req, res) => {
     const handleTags = async (franchiseId, tagString) => {
         if (!tagString) return;
         let tagList = [];
-        try { 
-            tagList = JSON.parse(tagString); 
-        } catch (e) { 
+        try {
+            tagList = JSON.parse(tagString);
+        } catch (e) {
             console.error('Failed to parse tags:', e);
             return;
         }
@@ -229,7 +229,7 @@ app.post('/api/admin/content', uploadAny, async (req, res) => {
         for (const tagObj of tagList) {
             const tagName = typeof tagObj === 'string' ? tagObj : tagObj.name;
             const tagWeight = typeof tagObj === 'object' ? (tagObj.weight || 50) : 50;
-            
+
             const clean = tagName.trim();
             if (!clean) continue;
 
@@ -415,7 +415,7 @@ app.get('/api/admin/franchise/:id', (req, res) => {
             WHERE ft.franchise_id = ?
             ORDER BY t.name
         `;
-        
+
         db.all(tagQuery, [franchiseId], (err, tags) => {
             if (err) {
                 console.error('Error fetching tags:', err);
@@ -456,7 +456,7 @@ app.get('/api/content/random', async (req, res) => {
                        FROM questions q 
                        JOIN franchises f ON q.franchise_id = f.id 
                        WHERE f.category = ? AND q.type = ?`;
-            
+
             if (type === 'character' || type === 'banner') {
                 sql += ` AND q.media_path IS NOT NULL AND q.media_path != ''`;
             }
@@ -483,14 +483,14 @@ app.get('/api/content/random', async (req, res) => {
 
         const responseData = {
             category: category,
-            
+
             // FIX 1: Provide a fallback generic title (using quote's title)
             // This prevents 'currentData.title' from being undefined in game.js
             title: quoteQ ? quoteQ.franchise_title : (charQ ? charQ.franchise_title : ""),
 
             // --- QUOTE DATA ---
             quote_id: quoteQ ? quoteQ.id : null,
-            quote_franchise_title: quoteQ ? quoteQ.franchise_title : null, 
+            quote_franchise_title: quoteQ ? quoteQ.franchise_title : null,
             answer_quote: quoteQ ? quoteQ.answer : null,
             video_path: quoteQ ? quoteQ.media_path : null,
             stop_timestamp: quoteQ ? quoteQ.stop_time : null,
@@ -569,11 +569,11 @@ app.get('/api/image-proxy', async (req, res) => {
         // CASE 1: Explicit Level provided (e.g. "1.0" when solved)
         if (level !== undefined) {
             targetLevel = parseFloat(level);
-        } 
+        }
         // CASE 2: Hint Index provided (Calculate based on DB start level)
         else if (hint !== undefined) {
             const hintIdx = parseInt(hint);
-            
+
             // Fetch the specific 'pixel_level' for this image from DB
             const question = await new Promise((resolve, reject) => {
                 db.get(`SELECT pixel_level FROM questions WHERE media_path = ?`, [imgPath], (err, row) => {
@@ -584,14 +584,14 @@ app.get('/api/image-proxy', async (req, res) => {
 
             // Default to 0.02 if DB is empty
             const startLevel = (question && question.pixel_level !== undefined) ? question.pixel_level : 0.02;
-            
+
             // --- SERVER-SIDE MATH ---
             // Start at DB level, add 0.15 for every hint used
             targetLevel = startLevel + (hintIdx * 0.15);
         }
         // CASE 3: Fallback (Just use DB level)
         else {
-             const question = await new Promise((resolve, reject) => {
+            const question = await new Promise((resolve, reject) => {
                 db.get(`SELECT pixel_level FROM questions WHERE media_path = ?`, [imgPath], (err, row) => {
                     if (err) reject(err);
                     else resolve(row);
@@ -612,7 +612,7 @@ app.get('/api/image-proxy', async (req, res) => {
         const metadata = await originalImage.metadata();
         const { width, height } = metadata;
 
-        const MAX_BLOCK_SIZE = 50; 
+        const MAX_BLOCK_SIZE = 50;
         let pixelSize = Math.floor(MAX_BLOCK_SIZE * (1.0 - targetLevel));
         pixelSize = Math.max(2, pixelSize);
 
@@ -625,9 +625,9 @@ app.get('/api/image-proxy', async (req, res) => {
                 .toFormat('png')
                 .toBuffer()
         )
-        .resize(width, height, { fit: 'fill', kernel: sharp.kernel.nearest })
-        .toFormat('png')
-        .toBuffer();
+            .resize(width, height, { fit: 'fill', kernel: sharp.kernel.nearest })
+            .toFormat('png')
+            .toBuffer();
 
         res.set('Content-Type', 'image/png');
         res.send(buffer);
@@ -647,7 +647,7 @@ app.get('/api/recommend', (req, res) => {
     const userId = req.session.userId;
     const category = req.query.category || 'movie';
     const limit = parseInt(req.query.limit) || 3; // Read the count
-    
+
     // Read exclude list (sent as JSON string)
     let excludeList = [];
     if (req.query.exclude) {
@@ -669,8 +669,8 @@ app.get('/api/recommend', (req, res) => {
 
     db.all(sql, [userId, category], async (err, rows) => {
         if (err) return res.status(500).json({ error: "Database error" });
-        
-        if (!rows || rows.length === 0) return res.json([]); 
+
+        if (!rows || rows.length === 0) return res.json([]);
 
         const historyText = rows.map(h => {
             const status = h.is_solved ? "WON" : "LOST";
@@ -678,10 +678,10 @@ app.get('/api/recommend', (req, res) => {
         }).join("\n");
 
         //console.log(`[AI] Generating ${limit} recs for User ${userId}...`);
-        
+
         // Pass limit and excludeList to the AI function
         const recommendations = await generateRecommendations(historyText, category, limit, excludeList);
-        
+
         res.json(recommendations);
     });
 });
