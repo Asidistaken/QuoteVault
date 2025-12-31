@@ -48,6 +48,11 @@ window.addEventListener('DOMContentLoaded', () => {
             if (currentData[mode].solved) return;
 
             currentData[mode].solved = true;
+            
+            if (mode !== 'quote') {
+                renderImages();
+            }
+
             const dragInterface = document.querySelector('.drag-interface');
             if (dragInterface) dragInterface.remove();
 
@@ -62,7 +67,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
             setTimeout(() => {
                 loadCategoryContent(currentCategory);
-            }, 1500);
+            }, 2000);
         });
     }
 

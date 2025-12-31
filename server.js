@@ -507,20 +507,33 @@ app.get('/api/content/random', async (req, res) => {
 app.post('/api/check-answer', (req, res) => {
     const { questionId, userGuess, attempts, hints, timeTaken } = req.body;
 
-    db.get(`SELECT * FROM questions WHERE id = ?`, [questionId], (err, question) => {
+    const sql = `
+        SELECT q.*, f.title as franchise_title 
+        FROM questions q
+        JOIN franchises f ON q.franchise_id = f.id
+        WHERE q.id = ?
+    `;
+
+    db.get(sql, [questionId], (err, question) => {
         if (!question) return res.status(404).json({ error: "Question not found" });
 
         const cleanGuess = userGuess.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-        const cleanAnswer = question.answer.toLowerCase().replace(/[^a-z0-9]/g, '');
+        
+        const dbAnswer = question.answer || question.franchise_title;
+        
+        if (!dbAnswer) {
+            return res.json({ correct: false });
+        }
 
+        const cleanAnswer = dbAnswer.toLowerCase().replace(/[^a-z0-9]/g, '');
         const isCorrect = cleanGuess === cleanAnswer;
 
         if (isCorrect && req.session.userId) {
-            const sql = `INSERT INTO user_activity 
+            const insertSql = `INSERT INTO user_activity 
                         (user_id, question_id, is_solved, attempts, hints_used, time_taken) 
                         VALUES (?, ?, ?, ?, ?, ?)`;
 
-            db.run(sql, [
+            db.run(insertSql, [
                 req.session.userId,
                 question.id,
                 1,
@@ -532,7 +545,7 @@ app.post('/api/check-answer', (req, res) => {
             db.run(`UPDATE users SET total_points = total_points + 100 WHERE id = ?`, [req.session.userId]);
         }
 
-        res.json({ correct: isCorrect, correctString: isCorrect ? question.answer : null });
+        res.json({ correct: isCorrect, correctString: dbAnswer });
     });
 });
 
