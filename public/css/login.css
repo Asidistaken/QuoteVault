@@ -1,4 +1,3 @@
-/* --- LOGIN PAGE SPECIFIC STYLES --- */
 body {
     background: var(--bg-color);
     min-height: 100vh;
@@ -8,11 +7,10 @@ body {
     overflow: hidden;
 }
 
-/* Container */
 .auth-container {
     position: relative;
     width: 400px;
-    height: 500px; /* Default starting height (Sign In) */
+    height: 500px;
     background: var(--card-bg);
     border-radius: 24px;
     box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
@@ -22,7 +20,6 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    /* This ensures the jump from 500px to 700px is animated smoothly */
     transition: height 0.4s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
@@ -31,16 +28,15 @@ body {
     flex-shrink: 0;
 }
 
-/* Toggle Switch */
 .toggle-box {
     display: flex;
-    background: rgba(0,0,0,0.3);
+    background: rgba(0, 0, 0, 0.3);
     border-radius: 30px;
     padding: 5px;
     position: relative;
     margin-bottom: 30px;
     width: 100%;
-    border: 1px solid rgba(255,255,255,0.05);
+    border: 1px solid rgba(255, 255, 255, 0.05);
     flex-shrink: 0;
 }
 
@@ -74,12 +70,10 @@ body {
     box-shadow: 0 0 15px var(--primary);
 }
 
-/* Forms Wrapper */
 .forms-wrapper {
     position: relative;
     width: 100%;
-    flex-grow: 1; /* This ensures the wrapper fills all available vertical space */
-    /* No height defined here; it relies on the flex parent */
+    flex-grow: 1;
 }
 
 .auth-form {
@@ -87,36 +81,29 @@ body {
     top: 0;
     left: 0;
     width: 100%;
-    height: 100%; /* KEY CHANGE: Form takes full height of the wrapper */
-    
-    /* Center the content vertically */
+    height: 100%;
     display: flex;
     flex-direction: column;
-    justify-content: center; /* KEY CHANGE: Pushes inputs to the middle */
-    
+    justify-content: center;
     gap: 15px;
     transition: all 0.4s ease;
-    
-    /* Default Hidden State */
+
     opacity: 0;
     pointer-events: none;
     transform: translateX(50px);
 }
 
-/* 1. Active State */
 .auth-form.active {
     opacity: 1;
     pointer-events: all;
     transform: translateX(0);
 }
 
-/* 2. Left State */
 .auth-form.left {
     transform: translateX(-50px) !important;
     opacity: 0;
 }
 
-/* Input Fields */
 .input-group {
     position: relative;
 }
@@ -146,26 +133,25 @@ body {
     border-color: var(--primary);
 }
 
-/* PFP Upload - Adjusted for better spacing in 700px layout */
 .file-upload-wrapper {
     position: relative;
-    width: 110px; /* Slightly larger */
+    width: 110px;
     height: 110px;
     border-radius: 50%;
-    border: 2px dashed rgba(255,255,255,0.2);
+    border: 2px dashed rgba(255, 255, 255, 0.2);
     display: flex;
     justify-content: center;
     align-items: center;
-    margin: 0 auto 15px auto; /* More bottom margin */
+    margin: 0 auto 15px auto;
     cursor: pointer;
     overflow: hidden;
-    background: rgba(0,0,0,0.2);
+    background: rgba(0, 0, 0, 0.2);
     transition: all 0.3s;
 }
 
 .file-upload-wrapper:hover {
     border-color: var(--primary);
-    background: rgba(0,0,0,0.4);
+    background: rgba(0, 0, 0, 0.4);
 }
 
 .file-upload-wrapper i {
@@ -192,7 +178,6 @@ body {
     z-index: 3;
 }
 
-/* Buttons */
 .full-width-btn {
     width: 100%;
     padding: 15px;

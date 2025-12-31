@@ -1,6 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
 
-/* --- ADMIN SPECIFIC OVERRIDES --- */
 :root {
     --bg-panel: #121212;
     --bg-input: #222;
@@ -41,7 +40,6 @@ button {
     border: 1px solid #444;
     border-radius: 8px;
     color: #ff2e63;
-    /* Red color */
     display: flex;
     align-items: center;
     justify-content: center;
@@ -58,7 +56,6 @@ button {
     transform: scale(1.05);
 }
 
-/* Styling for the Franchise Delete button to match btn-remove */
 .btn-meta-delete {
     width: 36px;
     height: 36px;
@@ -66,13 +63,11 @@ button {
     border: 1px solid #444;
     border-radius: 8px;
     color: #ff2e63;
-    /* Red color */
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     transition: all 0.3s;
-    /* No position:absolute here, so it fits in the layout */
 }
 
 .btn-meta-delete:hover {
@@ -82,17 +77,14 @@ button {
     transform: scale(1.05);
 }
 
-/* Helper for the row containing "Metadata" and the Button */
 .meta-header-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 10px;
     min-height: 36px;
-    /* Ensures height matches button so text centers vertically */
 }
 
-/* LAYOUT GRID */
 .admin-layout {
     display: grid;
     grid-template-columns: 280px 1fr 320px;
@@ -103,7 +95,6 @@ button {
     margin: 0 auto;
 }
 
-/* --- 1. SIDEBAR --- */
 .sidebar.admin-sidebar {
     background: var(--bg-panel);
     border: 1px solid var(--border-color);
@@ -128,7 +119,6 @@ button {
     align-items: center;
 }
 
-/* Search */
 .search-wrapper {
     position: relative;
     margin-bottom: 15px;
@@ -157,7 +147,6 @@ button {
     color: #555;
 }
 
-/* Filter Chips */
 .filter-row {
     display: flex;
     gap: 10px;
@@ -189,7 +178,6 @@ button {
     border-color: var(--primary);
 }
 
-/* Content List */
 .content-list {
     flex: 1;
     overflow-y: auto;
@@ -261,7 +249,6 @@ button {
     background: rgba(255, 255, 255, 0.02);
 }
 
-/* --- 2. MAIN STAGE --- */
 .main-stage {
     display: flex;
     flex-direction: column;
@@ -270,7 +257,6 @@ button {
     overflow-y: auto;
 }
 
-/* Header */
 .stage-header {
     background: var(--bg-panel);
     border: 1px solid var(--border-color);
@@ -319,7 +305,6 @@ button {
     color: white;
 }
 
-/* SECTIONS LAYOUT (3 Columns) */
 .sections-container {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -354,7 +339,6 @@ button {
     padding-right: 5px;
 }
 
-/* CARDS */
 .card {
     background: var(--card-bg);
     border: 1px solid var(--border-color);
@@ -364,7 +348,6 @@ button {
     flex-direction: column;
     gap: 12px;
     height: 450px;
-    /* Fixed Height */
 }
 
 .card:hover {
@@ -388,7 +371,6 @@ button {
     border-color: var(--primary);
 }
 
-/* Media Box */
 .media-container {
     width: 100%;
     aspect-ratio: 16/9;
@@ -446,7 +428,6 @@ button {
     border-color: var(--primary);
 }
 
-/* Inputs */
 .form-input {
     width: 100%;
     background: var(--bg-input);
@@ -462,7 +443,6 @@ button {
     border-color: var(--primary);
 }
 
-/* SLIDER & NUMBER INPUT (FIXED for overflow) */
 .slider-container {
     background: var(--bg-input);
     padding: 10px;
@@ -492,7 +472,7 @@ button {
 
 input[type=range] {
     flex: 1;
-    min-width: 0; /* FIX: Allows slider to shrink */
+    min-width: 0;
     appearance: none;
     background: transparent;
 }
@@ -525,10 +505,9 @@ input[type=range]::-webkit-slider-runnable-track {
     border-radius: 4px;
     font-size: 0.9rem;
     font-weight: bold;
-    flex-shrink: 0; /* FIX: Prevents squishing */
+    flex-shrink: 0;
 }
 
-/* --- 3. META PANEL --- */
 .meta-panel {
     background: var(--bg-panel);
     border: 1px solid var(--border-color);
@@ -539,15 +518,12 @@ input[type=range]::-webkit-slider-runnable-track {
     justify-content: space-between;
 }
 
-/* --- NEW TAG SYSTEM STYLES (Search + List + Weight) --- */
 
-/* Wrapper for search and dropdown */
 .tag-search-wrapper {
     position: relative;
     margin-bottom: 10px;
 }
 
-/* Dropdown */
 .tag-dropdown {
     position: absolute;
     top: 100%;
@@ -557,12 +533,11 @@ input[type=range]::-webkit-slider-runnable-track {
     border: 1px solid #444;
     border-radius: 8px;
     z-index: 1000;
-    
-    /* SCROLLABLE LIST */
-    max-height: 250px; 
+
+    max-height: 250px;
     overflow-y: auto;
-    
-    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
     margin-top: 5px;
 }
 
@@ -584,7 +559,6 @@ input[type=range]::-webkit-slider-runnable-track {
     color: white;
 }
 
-/* Tag List Area */
 .tag-list-container {
     display: flex;
     flex-direction: column;
@@ -595,7 +569,6 @@ input[type=range]::-webkit-slider-runnable-track {
     margin-bottom: 15px;
 }
 
-/* Individual Tag Row */
 .tag-row {
     display: flex;
     align-items: center;
@@ -621,7 +594,6 @@ input[type=range]::-webkit-slider-runnable-track {
     font-size: 0.9rem;
 }
 
-/* Weight Input */
 .tag-weight-input {
     width: 60px;
     background: #111;
@@ -639,7 +611,6 @@ input[type=range]::-webkit-slider-runnable-track {
     outline: none;
 }
 
-/* Remove Button */
 .btn-remove-tag {
     background: transparent;
     border: none;
@@ -657,7 +628,6 @@ input[type=range]::-webkit-slider-runnable-track {
     color: #ff2e63;
 }
 
-/* --- END TAG STYLES --- */
 
 .btn-save {
     background: var(--primary);
@@ -695,15 +665,16 @@ input[type=range]::-webkit-slider-runnable-track {
 }
 
 
-/* --- MODAL STYLES --- */
 .swal2-container {
     z-index: 9999 !important;
 }
 
 .modal-overlay {
     position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
     background: rgba(0, 0, 0, 0.8);
     display: flex;
     align-items: center;
@@ -725,7 +696,7 @@ input[type=range]::-webkit-slider-runnable-track {
     display: flex;
     flex-direction: column;
     max-height: 80vh;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
 
 .modal-header {
@@ -736,20 +707,30 @@ input[type=range]::-webkit-slider-runnable-track {
     align-items: center;
 }
 
-.modal-header h3 { margin: 0; color: #fff; font-size: 1.1rem; }
+.modal-header h3 {
+    margin: 0;
+    color: #fff;
+    font-size: 1.1rem;
+}
 
 .btn-close-modal {
-    background: transparent; border: none;
-    color: #888; cursor: pointer; font-size: 1.2rem;
+    background: transparent;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    font-size: 1.2rem;
 }
-.btn-close-modal:hover { color: #fff; }
+
+.btn-close-modal:hover {
+    color: #fff;
+}
 
 .modal-body {
     padding: 15px;
     display: flex;
     flex-direction: column;
     gap: 10px;
-    overflow: hidden; /* Contains the scrollable list */
+    overflow: hidden;
 }
 
 .manager-list {
@@ -770,8 +751,15 @@ input[type=range]::-webkit-slider-runnable-track {
     border-radius: 6px;
     border: 1px solid transparent;
 }
-.manager-item:hover { border-color: #444; }
-.manager-item span { color: #ccc; font-weight: 500; }
+
+.manager-item:hover {
+    border-color: #444;
+}
+
+.manager-item span {
+    color: #ccc;
+    font-weight: 500;
+}
 
 .btn-delete-global {
     background: rgba(255, 46, 99, 0.1);
@@ -783,24 +771,21 @@ input[type=range]::-webkit-slider-runnable-track {
     font-size: 0.8rem;
     transition: all 0.2s;
 }
+
 .btn-delete-global:hover {
     background: #ff2e63;
     color: white;
 }
 
 
-/* --- RESPONSIVE MEDIA QUERIES --- */
 
-/* Tablet & Smaller Desktop (Max Width: 1200px) */
 @media (max-width: 1200px) {
     body {
         height: auto;
         overflow-y: auto;
-        /* Enable page scrolling */
     }
 
     .admin-layout {
-        /* Change from 3 columns to: Sidebar (left) + Content (right) */
         grid-template-columns: 260px 1fr;
         grid-template-rows: auto auto;
         height: auto;
@@ -808,7 +793,6 @@ input[type=range]::-webkit-slider-runnable-track {
         gap: 15px;
     }
 
-    /* Sidebar stays on the left, spanning both rows */
     .sidebar.admin-sidebar {
         grid-row: 1 / 3;
         grid-column: 1;
@@ -817,28 +801,23 @@ input[type=range]::-webkit-slider-runnable-track {
         top: 20px;
     }
 
-    /* Main stage takes top right */
     .main-stage {
         grid-column: 2;
         grid-row: 1;
         overflow: visible;
-        /* Let content expand naturally */
     }
 
-    /* Meta panel moves to the bottom right */
     .meta-panel {
         grid-column: 2;
         grid-row: 2;
         height: auto;
     }
 
-    /* Quote/Char/Banner sections: 2 on top, 1 below */
     .sections-container {
         grid-template-columns: 1fr 1fr;
     }
 }
 
-/* Mobile Devices (Max Width: 850px) */
 @media (max-width: 850px) {
     .admin-layout {
         display: flex;
@@ -846,22 +825,18 @@ input[type=range]::-webkit-slider-runnable-track {
         gap: 20px;
     }
 
-    /* 1. Sidebar becomes a top block */
     .sidebar.admin-sidebar {
         width: 100%;
         height: auto;
         max-height: 400px;
-        /* Limit height so it doesn't take up whole screen */
         position: relative;
         top: 0;
     }
 
     .content-list {
         max-height: 200px;
-        /* Scrollable list inside the block */
     }
 
-    /* 2. Main Stage */
     .main-stage {
         padding: 0;
     }
@@ -872,18 +847,15 @@ input[type=range]::-webkit-slider-runnable-track {
         text-align: center;
     }
 
-    /* Stack Quote/Char/Banner sections vertically */
     .sections-container {
         grid-template-columns: 1fr;
     }
 
-    /* Allow cards to expand based on content, not fixed height */
     .card {
         height: auto;
         min-height: 450px;
     }
 
-    /* 3. Meta Panel at the bottom */
     .meta-panel {
         width: 100%;
     }
@@ -891,7 +863,6 @@ input[type=range]::-webkit-slider-runnable-track {
     .btn-remove {
         width: 45px;
         height: 45px;
-        /* Larger touch targets */
     }
 
     .btn-upload {
@@ -901,19 +872,15 @@ input[type=range]::-webkit-slider-runnable-track {
 
     .filter-chip {
         aspect-ratio: auto;
-        /* Stops them from being forced squares */
         height: 50px;
-        /* Sets a standard, touch-friendly height */
         border-radius: 12px;
     }
 
     .filter-row {
         gap: 8px;
-        /* Slightly tighter spacing for mobile */
     }
 
     .meta-panel {
         gap: 30px;
-        /* Forces space between the tags and the save button */
     }
 }
