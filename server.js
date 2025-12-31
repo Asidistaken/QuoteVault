@@ -418,35 +418,55 @@ app.get('/api/admin/franchise/:id', (req, res) => {
     });
 });
 
-
 app.get('/api/content/random', async (req, res) => {
     const category = req.query.category || 'movie';
+    
+    const lastQuoteId = req.query.last_quote_id ? parseInt(req.query.last_quote_id) : null;
+    const lastCharId = req.query.last_char_id ? parseInt(req.query.last_char_id) : null;
+    const lastBannerId = req.query.last_banner_id ? parseInt(req.query.last_banner_id) : null;
 
-    const getRandomItem = (type) => {
-        return new Promise((resolve, reject) => {
-            let sql = `SELECT q.*, f.title as franchise_title 
-                        FROM questions q 
-                        JOIN franchises f ON q.franchise_id = f.id 
-                        WHERE f.category = ? AND q.type = ?`;
+    const getRandomItem = (type, excludeId = null) => {
+        const runQuery = (ignoreExclusion) => {
+            return new Promise((resolve, reject) => {
+                let sql = `SELECT q.*, f.title as franchise_title 
+                            FROM questions q 
+                            JOIN franchises f ON q.franchise_id = f.id 
+                            WHERE f.category = ? AND q.type = ?`;
+                
+                const params = [category, type];
 
-            if (type === 'character' || type === 'banner') {
-                sql += ` AND q.media_path IS NOT NULL AND q.media_path != ''`;
-            }
+                if (excludeId && !ignoreExclusion) {
+                    sql += ` AND q.id != ?`;
+                    params.push(excludeId);
+                }
 
-            sql += ` ORDER BY RANDOM() LIMIT 1`;
+                if (type === 'character' || type === 'banner') {
+                    sql += ` AND q.media_path IS NOT NULL AND q.media_path != ''`;
+                }
 
-            db.get(sql, [category, type], (err, row) => {
-                if (err) reject(err);
-                else resolve(row || null);
+                sql += ` ORDER BY RANDOM() LIMIT 1`;
+
+                db.get(sql, params, (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row || null);
+                });
             });
+        };
+
+        return runQuery(false).then(row => {
+            if (row) return row;
+            if (excludeId) {
+                return runQuery(true);
+            }
+            return null;
         });
     };
 
     try {
         const [quoteQ, charQ, bannerQ] = await Promise.all([
-            getRandomItem('quote'),
-            getRandomItem('character'),
-            getRandomItem('banner')
+            getRandomItem('quote', lastQuoteId),
+            getRandomItem('character', lastCharId),
+            getRandomItem('banner', lastBannerId)
         ]);
 
         if (!quoteQ && !charQ && !bannerQ) {
@@ -456,23 +476,21 @@ app.get('/api/content/random', async (req, res) => {
         const responseData = {
             category: category,
             title: quoteQ ? quoteQ.franchise_title : (charQ ? charQ.franchise_title : ""),
-
+            
             quote_id: quoteQ ? quoteQ.id : null,
-            quote_franchise_title: quoteQ ? quoteQ.franchise_title : null,
+            quote_franchise_title: quoteQ ? quoteQ.franchise_title : null, 
             answer_quote: quoteQ ? quoteQ.answer : null,
             video_path: quoteQ ? quoteQ.media_path : null,
             stop_timestamp: quoteQ ? quoteQ.stop_time : null,
 
             char_id: charQ ? charQ.id : null,
             char_franchise_title: charQ ? charQ.franchise_title : null,
-
             answer_char: charQ ? (charQ.answer || charQ.franchise_title) : null,
             image_char_path: charQ ? charQ.media_path : null,
             char_pixel_level: charQ ? charQ.pixel_level : null,
 
             banner_id: bannerQ ? bannerQ.id : null,
             banner_franchise_title: bannerQ ? bannerQ.franchise_title : null,
-
             answer_banner: bannerQ ? (bannerQ.answer || bannerQ.franchise_title) : null,
             image_banner_path: bannerQ ? bannerQ.media_path : null,
             banner_pixel_level: bannerQ ? bannerQ.pixel_level : null

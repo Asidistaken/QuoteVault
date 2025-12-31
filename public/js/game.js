@@ -134,6 +134,10 @@ window.loadCategoryContent = function (category) {
     if (videoWrapper) videoWrapper.classList.remove('playing');
     if (hint) hint.innerHTML = '<i class="fa-solid fa-play"></i> Click to Play';
 
+    const prevQuoteId = (currentData && currentData.quote) ? currentData.quote.id : '';
+    const prevCharId = (currentData && currentData.character) ? currentData.character.id : '';
+    const prevBannerId = (currentData && currentData.banner) ? currentData.banner.id : '';
+
     currentData = {
         quote: { id: null, solved: false, points: POINTS_BASE, attempts: 0, hintsUsed: 0, answer: "" },
         character: { id: null, solved: false, level: 0.02, points: POINTS_BASE, attempts: 0, hintsUsed: 0, answer: "" },
@@ -142,7 +146,7 @@ window.loadCategoryContent = function (category) {
         stopTime: 0
     };
 
-    fetch(`/api/content/random?category=${category}`)
+    fetch(`/api/content/random?category=${category}&last_quote_id=${prevQuoteId}&last_char_id=${prevCharId}&last_banner_id=${prevBannerId}`)
         .then(res => {
             if (!res.ok) throw new Error("Network response was not ok");
             return res.json();
@@ -151,17 +155,17 @@ window.loadCategoryContent = function (category) {
             if (!data) return;
 
             currentContentId = data.id;
-            currentData.title = data.title;
+            currentData.title = data.quote_franchise_title || ""; 
             currentData.stopTime = data.stop_timestamp;
 
             currentData.quote.id = data.quote_id;
             currentData.quote.answer = data.answer_quote;
 
             currentData.character.id = data.char_id;
-            currentData.character.answer = data.answer_char || data.title;
+            currentData.character.answer = data.answer_char || data.char_franchise_title;
 
             currentData.banner.id = data.banner_id;
-            currentData.banner.answer = data.answer_banner || data.title;
+            currentData.banner.answer = data.answer_banner || data.banner_franchise_title;
 
             if (data.char_pixel_level) currentData.character.level = data.char_pixel_level;
             if (data.banner_pixel_level) currentData.banner.level = data.banner_pixel_level;
@@ -177,7 +181,7 @@ window.loadCategoryContent = function (category) {
         .catch(err => console.error(err));
 };
 
-window.updateInputState = function() {
+window.updateInputState = function () {
     const mode = window.currentMode;
     const state = currentData[mode];
 
@@ -196,7 +200,7 @@ window.updateInputState = function() {
         submitBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i>';
         submitBtn.classList.remove('next-btn');
     }
-    
+
     if (hintBtn) {
         hintBtn.classList.remove('disabled');
     }
@@ -254,10 +258,10 @@ window.revealHint = function (isAuto = false) {
 
     } else {
         if (state.hintsUsed <= 4) {
-            renderImages(); 
+            renderImages();
         } else if (state.hintsUsed === 5) {
-            if(charImg) charImg.src = `/api/image-proxy?path=${encodeURIComponent(charImg.dataset.src)}&level=1.0`;
-            if(bannerImg) bannerImg.src = `/api/image-proxy?path=${encodeURIComponent(bannerImg.dataset.src)}&level=1.0`;
+            if (charImg) charImg.src = `/api/image-proxy?path=${encodeURIComponent(charImg.dataset.src)}&level=1.0`;
+            if (bannerImg) bannerImg.src = `/api/image-proxy?path=${encodeURIComponent(bannerImg.dataset.src)}&level=1.0`;
         } else {
             isDragMode = true;
             const dndLevel = state.hintsUsed - 5;
