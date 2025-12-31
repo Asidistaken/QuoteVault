@@ -4,7 +4,6 @@ const signupForm = document.getElementById('signup-form');
 const btns = document.querySelectorAll('.toggle-btn');
 const container = document.querySelector('.auth-container');
 
-// Toggle Logic
 function switchMode(mode) {
     if (mode === 'signin') {
         slider.style.transform = 'translateX(0)';
@@ -39,12 +38,7 @@ function previewImage(input) {
     }
 }
 
-// Wait for the HTML to be ready
 document.addEventListener('DOMContentLoaded', () => {
-
-    // --- AUTH LOGIC ---
-
-    // Sign In
     document.getElementById('signin-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const inputs = e.target.querySelectorAll('input');
@@ -73,7 +67,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Sign Up
     document.getElementById('signup-form').addEventListener('submit', async (e) => {
         e.preventDefault();
 

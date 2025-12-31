@@ -1,4 +1,3 @@
-/* --- STATE MANAGEMENT --- */
 const POINTS_BASE = 100;
 let userScore = 0;
 let currentCategory = 'movie';
@@ -7,7 +6,6 @@ window.stopTimestamp = 0;
 let currentContentId = null;
 let startTime = Date.now();
 
-// Track if we have switched from Input to Drag mode
 let isDragMode = false;
 let draggedTile = null;
 let sourceSlot = null;
@@ -20,10 +18,8 @@ let currentData = {
     stopTime: 0
 };
 
-// Added hintBtn here
 let charImg, bannerImg, answerInput, submitBtn, answerSection, skipBtn, hintBtn;
 
-/* --- INITIALIZATION --- */
 window.addEventListener('DOMContentLoaded', () => {
     charImg = document.getElementById('char-img');
     bannerImg = document.getElementById('banner-img');
@@ -32,14 +28,12 @@ window.addEventListener('DOMContentLoaded', () => {
     submitBtn = document.querySelector('.submit-btn');
     skipBtn = document.getElementById('skip-btn');
 
-    // Select Hint Button
     hintBtn = document.querySelector('.hint-btn');
 
     if (!charImg || !answerSection) return;
 
     loadCategoryContent('movie');
 
-    // Submit Click
     submitBtn.addEventListener('click', () => {
         if (currentData[window.currentMode].solved) {
             loadCategoryContent(currentCategory);
@@ -48,7 +42,6 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Skip Logic
     if (skipBtn) {
         skipBtn.addEventListener('click', () => {
             const mode = window.currentMode;
@@ -65,7 +58,6 @@ window.addEventListener('DOMContentLoaded', () => {
                 answerInput.classList.add('wrong');
             }
 
-            // Lock hint button on skip
             if (hintBtn) hintBtn.classList.add('disabled');
 
             setTimeout(() => {
@@ -74,7 +66,6 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Enter Key
     if (answerInput) {
         answerInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
@@ -87,7 +78,6 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Video Events
     const vidEl = document.getElementById('clip');
     if (vidEl) {
         vidEl.addEventListener('timeupdate', () => {
@@ -109,29 +99,25 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-/* --- CORE FUNCTIONS --- */
 window.loadCategoryContent = function (category) {
     currentCategory = category;
     startTime = Date.now();
-    isDragMode = false; // Reset mode
+    isDragMode = false;
 
     if (charImg) charImg.src = '';
     if (bannerImg) bannerImg.src = '';
 
-    // Reset UI
     if (answerInput) {
         answerInput.value = '';
         answerInput.classList.remove('hidden', 'correct', 'wrong', 'shake');
         answerInput.disabled = false;
     }
 
-    // Reset Hint Button
     if (hintBtn) {
         hintBtn.classList.remove('disabled');
         hintBtn.disabled = false;
     }
 
-    // Remove any existing drag interface
     const existingDrag = document.querySelector('.drag-interface');
     if (existingDrag) existingDrag.remove();
 
@@ -168,16 +154,13 @@ window.loadCategoryContent = function (category) {
             currentData.title = data.title;
             currentData.stopTime = data.stop_timestamp;
 
-            // --- SAVE ANSWERS FOR ALL MODES ---
             currentData.quote.id = data.quote_id;
             currentData.quote.answer = data.answer_quote;
 
             currentData.character.id = data.char_id;
-            // Use specific character answer if available, else title
             currentData.character.answer = data.answer_char || data.title;
 
             currentData.banner.id = data.banner_id;
-            // Use specific banner answer if available, else title
             currentData.banner.answer = data.answer_banner || data.title;
 
             if (data.char_pixel_level) currentData.character.level = data.char_pixel_level;
@@ -194,37 +177,30 @@ window.loadCategoryContent = function (category) {
         .catch(err => console.error(err));
 };
 
-/* --- HANDLE MODE SWITCHING (Called by mainpage.js) --- */
 window.updateInputState = function() {
     const mode = window.currentMode;
     const state = currentData[mode];
 
-    // 1. Reset Global Drag State variable
-    isDragMode = false; 
+    isDragMode = false;
 
-    // 2. Clear Drag Interface (remove tiles from previous mode)
     const existingDrag = document.querySelector('.drag-interface');
     if (existingDrag) existingDrag.remove();
 
-    // 3. Reset Input Field to default state
     if (answerInput) {
         answerInput.classList.remove('hidden', 'correct', 'wrong', 'shake');
         answerInput.disabled = false;
         answerInput.value = "";
     }
 
-    // 4. Reset Submit Button
     if (submitBtn) {
         submitBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i>';
         submitBtn.classList.remove('next-btn');
     }
     
-    // 5. Reset Hint Button
     if (hintBtn) {
         hintBtn.classList.remove('disabled');
     }
 
-    // 6. CHECK: Is the new mode already solved?
     if (state.solved) {
         if (answerInput) {
             answerInput.value = state.answer || "";
@@ -235,41 +211,28 @@ window.updateInputState = function() {
             submitBtn.innerHTML = '<i class="fa-solid fa-forward-step"></i>';
             submitBtn.classList.add('next-btn');
         }
-        // Force clear image if solved (for character/banner)
         if (mode !== 'quote') renderImages();
 
     } else {
-        // 7. CHECK: Is the new mode "In Progress" (Hints used)?
-        // We might need to restore Drag & Drop if the user unlocked it here previously.
-        
         let shouldTriggerDrag = false;
         let dndLevel = 0;
 
         if (mode === 'quote') {
-            // Quote: Any hint triggers Drag & Drop
             if (state.hintsUsed > 0) {
                 shouldTriggerDrag = true;
                 dndLevel = state.hintsUsed;
             }
-            // Lock hint button if maxed
             if (state.hintsUsed >= 4 && hintBtn) hintBtn.classList.add('disabled');
 
         } else {
-            // Image Modes:
-            // Hints 1-5: Pixelation only (Input stays text)
-            // Hints 6+: Drag & Drop
             if (state.hintsUsed >= 6) {
                 shouldTriggerDrag = true;
                 dndLevel = state.hintsUsed - 5;
             }
-            // Lock hint button if maxed (5 pixel + 4 drag = 9)
             if (state.hintsUsed >= 9 && hintBtn) hintBtn.classList.add('disabled');
-            
-            // Always ensure image is rendered at correct pixel level
             renderImages();
         }
 
-        // Restore Drag Interface if needed
         if (shouldTriggerDrag) {
             isDragMode = true;
             setupDragDrop(state.answer, dndLevel);
@@ -277,7 +240,6 @@ window.updateInputState = function() {
     }
 };
 
-/* --- HINT LOGIC --- */
 window.revealHint = function (isAuto = false) {
     const state = currentData[window.currentMode];
     if (state.solved) return;
@@ -286,30 +248,17 @@ window.revealHint = function (isAuto = false) {
     if (!isAuto) state.hintsUsed++;
 
     if (window.currentMode === 'quote') {
-        // ... (Quote logic remains the same) ...
         isDragMode = true;
         setupDragDrop(state.answer, state.hintsUsed);
         if (state.hintsUsed >= 4 && hintBtn) hintBtn.classList.add('disabled');
 
     } else {
-        // --- IMAGE MODES ---
-        
-        // Phase 1: Pixelation (Hints 0 to 4)
         if (state.hintsUsed <= 4) {
-            // We don't calculate level here anymore. 
-            // We just ask the server for the next image.
             renderImages(); 
-        } 
-        // Phase 2: Clear Image (Hint 5)
-        else if (state.hintsUsed === 5) {
-            // state.solved is not true yet, but we want to show clear image
-            // We can handle this by sending level=1.0 or letting renderImages check hintsUsed
-            // Let's manually force a clear render here:
+        } else if (state.hintsUsed === 5) {
             if(charImg) charImg.src = `/api/image-proxy?path=${encodeURIComponent(charImg.dataset.src)}&level=1.0`;
             if(bannerImg) bannerImg.src = `/api/image-proxy?path=${encodeURIComponent(bannerImg.dataset.src)}&level=1.0`;
-        } 
-        // Phase 3: Drag & Drop (Hint 6+)
-        else {
+        } else {
             isDragMode = true;
             const dndLevel = state.hintsUsed - 5;
             setupDragDrop(state.answer, dndLevel);
@@ -321,40 +270,31 @@ window.revealHint = function (isAuto = false) {
     }
 };
 
-/* --- DRAG & DROP GENERATOR --- */
 function setupDragDrop(answerText, hintLevel) {
-    // 1. Hide Text Input
     if (answerInput) answerInput.classList.add('hidden');
 
-    // CHECK IF THIS IS AN UPDATE (ANIMATION LOGIC)
     const existingDrag = document.querySelector('.drag-interface');
     const isReshuffle = !!existingDrag;
 
-    // 2. Clear old interface
     if (existingDrag) existingDrag.remove();
 
-    // 3. Create Container
     const dragInterface = document.createElement('div');
     dragInterface.className = 'drag-interface';
 
     const slotsContainer = document.createElement('div');
     slotsContainer.className = 'slots-container';
 
-    // 4. Parse Words
     const cleanAnswer = answerText.trim();
     const words = cleanAnswer.split(/\s+/);
 
-    // --- SHUFFLE LOGIC ---
     let globalBag = [];
     if (hintLevel <= 1) {
-        // Global Shuffle (Hard)
         globalBag = cleanAnswer.replace(/\s/g, '').split('').sort(() => Math.random() - 0.5);
     }
 
     let globalBagIndex = 0;
     let globalTileCount = 0;
 
-    // --- BUILD SLOTS ---
     words.forEach((word) => {
         const wordGroup = document.createElement('div');
         wordGroup.className = 'word-group';
@@ -367,17 +307,15 @@ function setupDragDrop(answerText, hintLevel) {
         let lettersToDistribute = [];
 
         if (hintLevel <= 1) {
-            // Global Mode handled in loop
         } else {
             let temp = [...trueLetters];
 
-            // Handle Locked Letters
             if (hintLevel >= 3) {
                 const first = temp.shift();
                 let last = null;
-                if (hintLevel >= 4 && temp.length > 0) last = temp.pop(); // Remove last
+                if (hintLevel >= 4 && temp.length > 0) last = temp.pop();
 
-                temp.sort(() => Math.random() - 0.5); // Shuffle middle
+                temp.sort(() => Math.random() - 0.5);
 
                 lettersToDistribute = [first, ...temp];
                 if (last) lettersToDistribute.push(last);
@@ -399,7 +337,6 @@ function setupDragDrop(answerText, hintLevel) {
             } else {
                 letterChar = lettersToDistribute[idx];
 
-                // DETERMINE LOCKS
                 if (hintLevel >= 3 && idx === 0) isLocked = true;
                 if (hintLevel >= 4 && idx === trueLetters.length - 1) isLocked = true;
             }
@@ -433,11 +370,9 @@ function setupDragDrop(answerText, hintLevel) {
 
     dragInterface.appendChild(slotsContainer);
 
-    // Insert before Submit
     answerSection.insertBefore(dragInterface, submitBtn);
 }
 
-/* --- DRAG EVENTS (SWAP LOGIC) --- */
 function handleDragStart(e) {
     draggedTile = e.target;
     sourceSlot = draggedTile.parentElement;
@@ -446,7 +381,7 @@ function handleDragStart(e) {
 }
 
 function handleDragOver(e) {
-    e.preventDefault(); // Allow drop
+    e.preventDefault();
     e.dataTransfer.dropEffect = "move";
 }
 
@@ -455,69 +390,54 @@ function handleDragEnter(e) {
 }
 
 function handleDrop(e) {
-    e.stopPropagation(); // Stop bubbling
+    e.stopPropagation();
     e.preventDefault();
 
-    if (draggedTile === e.target) return; // Dropped on self
+    if (draggedTile === e.target) return;
 
-    // Resolve the target slot
     let targetElement = e.target;
 
-    // If we dropped on a tile, we want to swap
     if (targetElement.classList.contains('drag-tile')) {
-        if (targetElement.classList.contains('locked-tile')) return; // Cannot swap with locked
+        if (targetElement.classList.contains('locked-tile')) return;
 
         const targetSlot = targetElement.parentElement;
 
-        // SWAP TILES
-        sourceSlot.appendChild(targetElement); // Move target to source
-        targetSlot.appendChild(draggedTile);   // Move dragged to target
-    }
-    // If we dropped on an empty slot (unlikely in pre-filled mode but possible)
-    else if (targetElement.classList.contains('char-slot')) {
+        sourceSlot.appendChild(targetElement);
+        targetSlot.appendChild(draggedTile);
+    } else if (targetElement.classList.contains('char-slot')) {
         targetElement.appendChild(draggedTile);
     }
 
     draggedTile.classList.remove('is-dragging');
 }
 
-// Click to move (Simple fallback for mobile if drag fails)
 let selectedTile = null;
 function handleClickSwap(e) {
     const tile = e.target;
     if (tile.classList.contains('locked-tile')) return;
 
     if (!selectedTile) {
-        // Select
         selectedTile = tile;
         tile.style.backgroundColor = 'var(--secondary)';
     } else {
-        // Swap
         const prevSlot = selectedTile.parentElement;
         const currSlot = tile.parentElement;
 
         prevSlot.appendChild(tile);
         currSlot.appendChild(selectedTile);
 
-        // Reset
         selectedTile.style.backgroundColor = '';
         selectedTile = null;
     }
 }
 
-/* --- IMAGES & CHECK ANSWER --- */
 window.renderImages = function () {
     const charState = currentData.character;
     const bannerState = currentData.banner;
 
-    // Helper to build URL
     const getUrl = (imgElement, state) => {
         if (!imgElement.dataset.src) return '';
-        
-        // If solved, force clear (level=1.0)
-        // If playing, send hint count (hint=0, 1, 2...)
         const param = state.solved ? 'level=1.0' : `hint=${state.hintsUsed}`;
-        
         return `/api/image-proxy?path=${encodeURIComponent(imgElement.dataset.src)}&${param}&t=${Date.now()}`;
     };
 
@@ -537,15 +457,12 @@ function checkAnswer() {
 
     let userGuess = "";
 
-    // CHECK INPUT METHOD
     if (isDragMode) {
-        // Construct string from slots
         const slots = document.querySelectorAll('.char-slot .drag-tile');
         slots.forEach(tile => {
             userGuess += tile.textContent;
         });
     } else {
-        // Read from Input
         if (!answerInput) return;
         userGuess = answerInput.value.replace(/\s+/g, '');
     }
@@ -574,40 +491,32 @@ function checkAnswer() {
                 if (mode !== 'quote') renderImages();
 
                 if (isDragMode) {
-                    // --- SUCCESS ANIMATION LOGIC ---
                     const allSlots = document.querySelectorAll('.char-slot');
 
                     allSlots.forEach((slot, index) => {
-                        // 1. Mark Slot as correct (for border color)
                         slot.classList.add('correct-state');
 
                         const tile = slot.querySelector('.drag-tile');
                         if (tile) {
-                            // 2. Lock Tile
                             tile.draggable = false;
                             tile.classList.add('locked-tile');
 
-                            // 3. Apply Staggered Animation
-                            // We set the delay via inline style so it flows left-to-right
-                            tile.style.animationDelay = `${index * 0.05}s`; // 0.05s delay per tile
+                            tile.style.animationDelay = `${index * 0.05}s`;
                             tile.classList.add('success-anim');
                         }
                     });
 
                 } else {
-                    // Text Input Success
                     answerInput.classList.add('correct');
                     answerInput.value = data.correctString;
                     answerInput.disabled = true;
                 }
 
-                // Change Submit Button to Next
                 if (submitBtn) {
                     submitBtn.innerHTML = '<i class="fa-solid fa-forward-step"></i>';
                     submitBtn.classList.add('next-btn');
                 }
 
-                // Play Video / Cleanup
                 if (mode === 'quote') {
                     const v = document.getElementById('clip');
                     if (v) {
@@ -620,7 +529,6 @@ function checkAnswer() {
                     }
                 }
             } else {
-                // Error Feedback
                 if (isDragMode) {
                     const con = document.querySelector('.slots-container');
                     if (con) {
@@ -636,21 +544,15 @@ function checkAnswer() {
                     setTimeout(() => answerInput.classList.remove('shake', 'wrong'), 500);
                 }
 
-                // AUTO-TRIGGER LOGIC
-                // If attempts >= 5, force hints to a level where D&D is active
                 if (!isDragMode && state.attempts >= 5) {
                     if (window.currentMode === 'quote') {
                         window.revealHint(true);
                     } else {
-                        // For Images: Skip to Hint 6 (Drag & Drop) directly
-                        // We set hintsUsed to 6 so the D&D logic picks up correctly
                         state.hintsUsed = 6;
-                        // Also ensure image is clear
                         state.level = 1.0;
                         renderImages();
-                        // Trigger D&D
                         isDragMode = true;
-                        setupDragDrop(state.answer, 1); // Level 1 D&D
+                        setupDragDrop(state.answer, 1);
                     }
                 }
             }

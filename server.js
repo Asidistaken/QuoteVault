@@ -12,7 +12,6 @@ const { generateRecommendations } = require('./geminiRecommend');
 const app = express();
 const PORT = 3000;
 
-// --- MIDDLEWARE ---
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
@@ -24,7 +23,6 @@ app.use(session({
     cookie: { maxAge: 24 * 60 * 60 * 1000 }
 }));
 
-// --- MULTER STORAGE ---
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         cb(null, 'public/uploads/');
@@ -38,7 +36,6 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 const uploadAny = upload.any();
 
-// --- HELPER: DELETE FILE ---
 const deleteFile = (relativePath) => {
     if (!relativePath) return;
     const fullPath = path.join(__dirname, 'public', relativePath);
@@ -52,7 +49,6 @@ const deleteFile = (relativePath) => {
     });
 };
 
-// --- ROUTES: PAGES ---
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
@@ -64,7 +60,6 @@ app.get('/admin', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
-// --- ROUTES: AUTH ---
 app.get('/api/me', (req, res) => {
     if (req.session.userId) {
         db.get(`SELECT username, email, total_points, avatar_url FROM users WHERE id = ?`, [req.session.userId], (err, row) => {
@@ -135,7 +130,6 @@ app.post('/api/logout', (req, res) => {
     res.json({ success: true });
 });
 
-// --- ROUTES: ADMIN (SEARCH & TAGS) ---
 app.get('/api/admin/search', (req, res) => {
     if (!req.session.userId || !req.session.isAdmin) return res.status(403).json({ error: "Access Denied" });
 
@@ -175,7 +169,6 @@ app.get('/api/admin/search', (req, res) => {
     });
 });
 
-// Get all tags for suggestions (NEW: returns array of {id, name})
 app.get('/api/tags', (req, res) => {
     db.all('SELECT id, name FROM tags ORDER BY name', [], (err, rows) => {
         if (err) return res.status(500).json([]);
@@ -183,7 +176,6 @@ app.get('/api/tags', (req, res) => {
     });
 });
 
-// Keep old endpoint for backward compatibility
 app.get('/api/admin/tags', (req, res) => {
     const { q } = req.query;
     db.all(`SELECT name FROM tags WHERE name LIKE ? LIMIT 10`, [`%${q}%`], (err, rows) => {
@@ -192,18 +184,15 @@ app.get('/api/admin/tags', (req, res) => {
     });
 });
 
-// DELETE TAG GLOBALLY
 app.delete('/api/tags/:id', (req, res) => {
     const id = req.params.id;
 
-    // Cascading delete handles removing it from franchise_tags automatically
     db.run('DELETE FROM tags WHERE id = ?', [id], function (err) {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ success: true });
     });
 });
 
-// --- ROUTES: ADMIN (UPLOAD/UPDATE CONTENT) ---
 app.post('/api/admin/content', uploadAny, async (req, res) => {
     if (!req.session.userId || !req.session.isAdmin) {
         return res.status(403).json({ error: "Access Denied" });
@@ -222,10 +211,8 @@ app.post('/api/admin/content', uploadAny, async (req, res) => {
             return;
         }
 
-        // Clear old tags
         await new Promise(r => db.run(`DELETE FROM franchise_tags WHERE franchise_id = ?`, [franchiseId], r));
 
-        // Process each tag object {name, weight}
         for (const tagObj of tagList) {
             const tagName = typeof tagObj === 'string' ? tagObj : tagObj.name;
             const tagWeight = typeof tagObj === 'object' ? (tagObj.weight || 50) : 50;
@@ -233,7 +220,6 @@ app.post('/api/admin/content', uploadAny, async (req, res) => {
             const clean = tagName.trim();
             if (!clean) continue;
 
-            // Find or create tag
             const tagId = await new Promise(resolve => {
                 db.get(`SELECT id FROM tags WHERE name = ?`, [clean], (err, row) => {
                     if (row) {
@@ -251,7 +237,6 @@ app.post('/api/admin/content', uploadAny, async (req, res) => {
                 });
             });
 
-            // Link tag to franchise with weight
             if (tagId) {
                 await new Promise(resolve => {
                     db.run(
@@ -354,7 +339,6 @@ app.post('/api/admin/content', uploadAny, async (req, res) => {
     }
 });
 
-// --- ROUTE: DELETE FRANCHISE ---
 app.delete('/api/admin/franchise/:id', (req, res) => {
     if (!req.session.userId || !req.session.isAdmin) {
         return res.status(403).json({ error: "Access Denied" });
@@ -362,26 +346,20 @@ app.delete('/api/admin/franchise/:id', (req, res) => {
 
     const franchiseId = req.params.id;
 
-    // 1. Get all media paths associated with this franchise to delete files
     db.all('SELECT media_path FROM questions WHERE franchise_id = ?', [franchiseId], (err, rows) => {
         if (err) console.error("Error fetching files for deletion:", err);
 
-        // Delete physical files
         if (rows && rows.length > 0) {
             rows.forEach(row => {
                 if (row.media_path) deleteFile(row.media_path);
             });
         }
 
-        // 2. Perform Database Cleanup
         db.serialize(() => {
-            // Remove Tags association
             db.run('DELETE FROM franchise_tags WHERE franchise_id = ?', [franchiseId]);
 
-            // Remove Questions/Content
             db.run('DELETE FROM questions WHERE franchise_id = ?', [franchiseId]);
 
-            // Remove Franchise Entry
             db.run('DELETE FROM franchises WHERE id = ?', [franchiseId], function (err) {
                 if (err) {
                     res.status(500).json({ error: "Database Delete Error" });
@@ -393,7 +371,6 @@ app.delete('/api/admin/franchise/:id', (req, res) => {
     });
 });
 
-// --- ROUTE: GET FRANCHISE FOR EDITING (WITH TAG WEIGHTS) ---
 app.get('/api/admin/franchise/:id', (req, res) => {
     if (!req.session.userId || !req.session.isAdmin) {
         return res.status(403).json({ error: "Access Denied" });
@@ -401,13 +378,11 @@ app.get('/api/admin/franchise/:id', (req, res) => {
 
     const franchiseId = req.params.id;
 
-    // Get franchise data
     db.get('SELECT * FROM franchises WHERE id = ?', [franchiseId], (err, franchise) => {
         if (err || !franchise) {
             return res.status(404).json({ error: 'Franchise not found' });
         }
 
-        // Get tags WITH weights
         const tagQuery = `
             SELECT t.name, ft.weight 
             FROM tags t
@@ -422,20 +397,18 @@ app.get('/api/admin/franchise/:id', (req, res) => {
                 tags = [];
             }
 
-            // Get content/questions
             db.all('SELECT * FROM questions WHERE franchise_id = ? ORDER BY id', [franchiseId], (err, content) => {
                 if (err) {
                     console.error('Error fetching content:', err);
                     content = [];
                 }
 
-                // Build response
                 const response = {
                     _id: franchise.id,
                     id: franchise.id,
                     title: franchise.title,
                     category: franchise.category,
-                    tags: tags || [], // Returns [{name: 'Action', weight: 80}, ...]
+                    tags: tags || [],
                     content: content || []
                 };
 
@@ -446,16 +419,15 @@ app.get('/api/admin/franchise/:id', (req, res) => {
 });
 
 
-// --- ROUTES: GAME LOGIC ---
 app.get('/api/content/random', async (req, res) => {
     const category = req.query.category || 'movie';
 
     const getRandomItem = (type) => {
         return new Promise((resolve, reject) => {
             let sql = `SELECT q.*, f.title as franchise_title 
-                       FROM questions q 
-                       JOIN franchises f ON q.franchise_id = f.id 
-                       WHERE f.category = ? AND q.type = ?`;
+                        FROM questions q 
+                        JOIN franchises f ON q.franchise_id = f.id 
+                        WHERE f.category = ? AND q.type = ?`;
 
             if (type === 'character' || type === 'banner') {
                 sql += ` AND q.media_path IS NOT NULL AND q.media_path != ''`;
@@ -483,30 +455,24 @@ app.get('/api/content/random', async (req, res) => {
 
         const responseData = {
             category: category,
-
-            // FIX 1: Provide a fallback generic title (using quote's title)
-            // This prevents 'currentData.title' from being undefined in game.js
             title: quoteQ ? quoteQ.franchise_title : (charQ ? charQ.franchise_title : ""),
 
-            // --- QUOTE DATA ---
             quote_id: quoteQ ? quoteQ.id : null,
             quote_franchise_title: quoteQ ? quoteQ.franchise_title : null,
             answer_quote: quoteQ ? quoteQ.answer : null,
             video_path: quoteQ ? quoteQ.media_path : null,
             stop_timestamp: quoteQ ? quoteQ.stop_time : null,
 
-            // --- CHARACTER DATA ---
             char_id: charQ ? charQ.id : null,
             char_franchise_title: charQ ? charQ.franchise_title : null,
-            // FIX 2: If answer is null, use franchise title immediately
+
             answer_char: charQ ? (charQ.answer || charQ.franchise_title) : null,
             image_char_path: charQ ? charQ.media_path : null,
             char_pixel_level: charQ ? charQ.pixel_level : null,
 
-            // --- BANNER DATA ---
             banner_id: bannerQ ? bannerQ.id : null,
             banner_franchise_title: bannerQ ? bannerQ.franchise_title : null,
-            // FIX 3: If answer is null, use franchise title immediately
+
             answer_banner: bannerQ ? (bannerQ.answer || bannerQ.franchise_title) : null,
             image_banner_path: bannerQ ? bannerQ.media_path : null,
             banner_pixel_level: bannerQ ? bannerQ.pixel_level : null
@@ -523,7 +489,6 @@ app.get('/api/content/random', async (req, res) => {
 app.post('/api/check-answer', (req, res) => {
     const { questionId, userGuess, attempts, hints, timeTaken } = req.body;
 
-    // Look up by specific question ID
     db.get(`SELECT * FROM questions WHERE id = ?`, [questionId], (err, question) => {
         if (!question) return res.status(404).json({ error: "Question not found" });
 
@@ -534,8 +499,8 @@ app.post('/api/check-answer', (req, res) => {
 
         if (isCorrect && req.session.userId) {
             const sql = `INSERT INTO user_activity 
-                         (user_id, question_id, is_solved, attempts, hints_used, time_taken) 
-                         VALUES (?, ?, ?, ?, ?, ?)`;
+                        (user_id, question_id, is_solved, attempts, hints_used, time_taken) 
+                        VALUES (?, ?, ?, ?, ?, ?)`;
 
             db.run(sql, [
                 req.session.userId,
@@ -553,9 +518,8 @@ app.post('/api/check-answer', (req, res) => {
     });
 });
 
-/* --- IMAGE PROXY ROUTE (Server-Side Level Calculation) --- */
 app.get('/api/image-proxy', async (req, res) => {
-    const { path: imgPath, level, hint } = req.query; // Added 'hint'
+    const { path: imgPath, level, hint } = req.query;
 
     if (!imgPath || !imgPath.startsWith('uploads/')) {
         return res.status(403).send('Access Denied');
@@ -566,15 +530,13 @@ app.get('/api/image-proxy', async (req, res) => {
     try {
         let targetLevel;
 
-        // CASE 1: Explicit Level provided (e.g. "1.0" when solved)
         if (level !== undefined) {
             targetLevel = parseFloat(level);
         }
-        // CASE 2: Hint Index provided (Calculate based on DB start level)
+
         else if (hint !== undefined) {
             const hintIdx = parseInt(hint);
 
-            // Fetch the specific 'pixel_level' for this image from DB
             const question = await new Promise((resolve, reject) => {
                 db.get(`SELECT pixel_level FROM questions WHERE media_path = ?`, [imgPath], (err, row) => {
                     if (err) reject(err);
@@ -582,15 +544,10 @@ app.get('/api/image-proxy', async (req, res) => {
                 });
             });
 
-            // Default to 0.02 if DB is empty
             const startLevel = (question && question.pixel_level !== undefined) ? question.pixel_level : 0.02;
 
-            // --- SERVER-SIDE MATH ---
-            // Start at DB level, add 0.15 for every hint used
             targetLevel = startLevel + (hintIdx * 0.15);
-        }
-        // CASE 3: Fallback (Just use DB level)
-        else {
+        } else {
             const question = await new Promise((resolve, reject) => {
                 db.get(`SELECT pixel_level FROM questions WHERE media_path = ?`, [imgPath], (err, row) => {
                     if (err) reject(err);
@@ -602,12 +559,10 @@ app.get('/api/image-proxy', async (req, res) => {
 
         const fullPath = path.join(__dirname, 'public', imgPath);
 
-        // 1. If Solved/Clear (>= 0.95), send original
         if (targetLevel >= 0.95) {
             return res.sendFile(fullPath);
         }
 
-        // 2. Pixelation Logic (Linear & Crisp PNG)
         const originalImage = sharp(fullPath);
         const metadata = await originalImage.metadata();
         const { width, height } = metadata;
@@ -638,7 +593,6 @@ app.get('/api/image-proxy', async (req, res) => {
     }
 });
 
-/* --- AI RECOMMENDATION ROUTE --- */
 app.get('/api/recommend', (req, res) => {
     if (!req.session.userId) {
         return res.status(401).json({ error: "Unauthorized" });
@@ -646,9 +600,8 @@ app.get('/api/recommend', (req, res) => {
 
     const userId = req.session.userId;
     const category = req.query.category || 'movie';
-    const limit = parseInt(req.query.limit) || 3; // Read the count
+    const limit = parseInt(req.query.limit) || 3;
 
-    // Read exclude list (sent as JSON string)
     let excludeList = [];
     if (req.query.exclude) {
         try {
@@ -679,7 +632,6 @@ app.get('/api/recommend', (req, res) => {
 
         //console.log(`[AI] Generating ${limit} recs for User ${userId}...`);
 
-        // Pass limit and excludeList to the AI function
         const recommendations = await generateRecommendations(historyText, category, limit, excludeList);
 
         res.json(recommendations);

@@ -1,4 +1,3 @@
-// database.js
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 
@@ -9,7 +8,6 @@ const db = new sqlite3.Database(dbPath, (err) => {
 });
 
 db.serialize(() => {
-    // 1. Users
     db.run(`CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE,
@@ -21,8 +19,6 @@ db.serialize(() => {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
-    // 2. Franchises (Parent Table)
-    // Represents the "Show", "Movie", or "Game" entity
     db.run(`CREATE TABLE IF NOT EXISTS franchises (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title TEXT,
@@ -30,8 +26,6 @@ db.serialize(() => {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
-    // 3. Questions (Child Table)
-    // Represents a specific gameplay item linked to a franchise
     db.run(`CREATE TABLE IF NOT EXISTS questions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         franchise_id INTEGER,
@@ -45,14 +39,11 @@ db.serialize(() => {
         FOREIGN KEY(franchise_id) REFERENCES franchises(id) ON DELETE CASCADE
     )`);
 
-    // 4. Tags
     db.run(`CREATE TABLE IF NOT EXISTS tags (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT UNIQUE
     )`);
 
-    // 5. Franchise_Tags (Replaces Question_Tags)
-    // Links tags to the Franchise entity relationally
     db.run(`CREATE TABLE IF NOT EXISTS franchise_tags (
         franchise_id INTEGER,
         tag_id INTEGER,
@@ -61,7 +52,6 @@ db.serialize(() => {
         FOREIGN KEY(tag_id) REFERENCES tags(id) ON DELETE CASCADE
     )`);
 
-    // 6. User Activity
     db.run(`CREATE TABLE IF NOT EXISTS user_activity (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,

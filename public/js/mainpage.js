@@ -1,4 +1,3 @@
-// Check Login Status on Load
 fetch('/api/me')
     .then(res => res.json())
     .then(data => {
@@ -24,7 +23,6 @@ function logout() {
     fetch('/api/logout', { method: 'POST' }).then(() => window.location.reload());
 }
 
-// --- Layout Helpers ---
 function setTheme(theme) {
     document.body.className = 'theme-' + theme;
     document.querySelectorAll('.category-sidebar .nav-btn').forEach(btn => {
@@ -34,14 +32,11 @@ function setTheme(theme) {
 }
 
 function setMode(modeName) {
-    // 1. Update Buttons (Safer Loop)
     document.querySelectorAll('.mode-btn').forEach(btn => {
-        // Ignore the suggest button for styling
         if (btn.classList.contains('suggest-btn')) return;
 
         btn.classList.remove('active');
 
-        // SAFETY CHECK: Only check onclick if it actually exists
         if (btn.onclick) {
             if (btn.onclick.toString().includes(modeName)) {
                 btn.classList.add('active');
@@ -49,21 +44,18 @@ function setMode(modeName) {
         }
     });
 
-    // 2. Switch View
     document.querySelectorAll('.content-view').forEach(view => {
         view.classList.remove('active');
     });
     const targetView = document.getElementById('view-' + modeName);
     if (targetView) targetView.classList.add('active');
 
-    // 3. Logic Updates
     window.currentMode = modeName;
 
     if (window.updateInputState) {
         window.updateInputState();
     }
 
-    // Pause video if leaving quote mode
     const video = document.getElementById('clip');
     if (modeName !== 'quote' && video && !video.paused) {
         video.pause();
@@ -71,8 +63,6 @@ function setMode(modeName) {
     }
 }
 
-/* --- RECOMMENDATION MODAL LOGIC --- */
-// 1. Cache Variable
 window.recCache = {
     movie: [],
     series: [],
@@ -88,11 +78,10 @@ function openRecModal() {
 
     const category = getActiveCategory();
 
-    // Check Cache: If empty, auto-load. If exists, just show it.
     if (window.recCache[category] && window.recCache[category].length > 0) {
         renderRecList(window.recCache[category]);
     } else {
-        loadRecommendations(3, false); // Initial Load (not append)
+        loadRecommendations(3, false);
     }
 }
 
@@ -103,11 +92,10 @@ function closeRecModal() {
     setTimeout(() => modal.classList.add('hidden'), 300);
 }
 
-// 2. Manual "Get More" Handler
 function manualRefreshRecs() {
     const input = document.getElementById('rec-count-input');
     const count = input ? parseInt(input.value) : 3;
-    loadRecommendations(count, true); // True = Append mode
+    loadRecommendations(count, true);
 }
 
 function getActiveCategory() {
@@ -119,14 +107,12 @@ function getActiveCategory() {
     return 'movie';
 }
 
-// 3. Main Load Logic
 async function loadRecommendations(count = 3, isAppend = false) {
     const list = document.getElementById('rec-list');
-    const modalBody = document.querySelector('.modal-body'); // Select wrapper for scrolling
+    const modalBody = document.querySelector('.modal-body');
     const category = getActiveCategory();
     let currentRecs = window.recCache[category] || [];
 
-    // UI: If appending, show loader at bottom. If fresh, clear list.
     let loadingEl = null;
 
     if (isAppend) {
@@ -135,7 +121,6 @@ async function loadRecommendations(count = 3, isAppend = false) {
         loadingEl.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Finding ${count} more...`;
         list.appendChild(loadingEl);
 
-        // Auto-scroll to show the loader
         if (modalBody) {
             setTimeout(() => {
                 modalBody.scrollTo({ top: modalBody.scrollHeight, behavior: 'smooth' });
@@ -151,7 +136,6 @@ async function loadRecommendations(count = 3, isAppend = false) {
     }
 
     try {
-        // Collect existing titles to exclude
         const excludeTitles = currentRecs.map(r => r.title);
         const excludeParam = encodeURIComponent(JSON.stringify(excludeTitles));
 
@@ -164,7 +148,6 @@ async function loadRecommendations(count = 3, isAppend = false) {
 
         const data = await res.json();
 
-        // Remove loader
         if (loadingEl) loadingEl.remove();
 
         if (data.error) {
@@ -179,19 +162,16 @@ async function loadRecommendations(count = 3, isAppend = false) {
             return;
         }
 
-        // 4. Update Cache (Accumulate)
         if (isAppend) {
             window.recCache[category] = [...currentRecs, ...data];
         } else {
             window.recCache[category] = data;
         }
 
-        // 5. Render Full List
         renderRecList(window.recCache[category]);
 
         toggleRecFooter(true);
 
-        // 6. Scroll to bottom again to show new items
         if (isAppend && modalBody) {
             setTimeout(() => {
                 modalBody.scrollTo({ top: modalBody.scrollHeight, behavior: 'smooth' });
@@ -207,10 +187,9 @@ async function loadRecommendations(count = 3, isAppend = false) {
 
 function renderRecList(data) {
     const list = document.getElementById('rec-list');
-    list.innerHTML = ''; // Clear and rebuild to ensure order
+    list.innerHTML = '';
 
     data.forEach((item, index) => {
-        // Stagger animation based on index
         const delay = (index % 5) * 0.1;
         const html = `
             <div class="rec-item" style="animation-delay: ${delay}s">
@@ -224,7 +203,6 @@ function renderRecList(data) {
         list.insertAdjacentHTML('beforeend', html);
     });
 
-    // Auto scroll to bottom if we just added items
     const modalBody = document.querySelector('.modal-body');
     if (modalBody) modalBody.scrollTop = modalBody.scrollHeight;
 }
@@ -248,7 +226,6 @@ function toggleRecFooter(show) {
     }
 }
 
-// Close modal when clicking outside
 document.addEventListener('click', (e) => {
     const modal = document.getElementById('rec-modal');
     if (e.target === modal) {

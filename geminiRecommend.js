@@ -1,25 +1,14 @@
-/* --- geminiRecommend.js --- */
 require('dotenv').config();
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-/**
- * Generates recommendations based on provided history text.
- * @param {string} historyText - Formatted string of user gameplay history.
- * @param {string} targetCategory - 'movie', 'series', or 'game'.
- * @param {number} recommendationCount - How many to generate.
- * @param {Array} excludeTitles - List of titles to skip (already recommended).
- * @returns {Promise<Array>} JSON array of recommendations.
- */
 async function generateRecommendations(historyText, targetCategory = 'movie', recommendationCount = 3, excludeTitles = []) {
     try {
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
         const exclusionText = excludeTitles.length > 0 
             ? `Do NOT recommend these titles (User already saw them): ${excludeTitles.join(', ')}` 
             : "";
-
         const prompt = `
         You are an AI Gaming Assistant for a trivia game called QuoteVault.
         
@@ -43,17 +32,12 @@ async function generateRecommendations(historyText, targetCategory = 'movie', re
         
         Do not include markdown formatting (like \`\`\`json). Just raw JSON.
         `;
-
         const result = await model.generateContent(prompt);
         const response = await result.response;
         const text = response.text();
-        
-        // Clean JSON
         const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
         const recommendations = JSON.parse(cleanText);
-
         return recommendations;
-
     } catch (error) {
         console.error("Gemini AI Error:", error);
         return [];
