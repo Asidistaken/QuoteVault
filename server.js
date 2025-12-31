@@ -278,7 +278,8 @@ app.post('/api/admin/content', uploadAny, async (req, res) => {
 
                 const finalAnswer = item.answer || (row ? row.answer : '');
                 const finalStop = item.stop_time || (row ? row.stop_time : null);
-                const finalPixel = item.pixel_level || (row ? row.pixel_level : 1.0);
+                let finalPixel = item.pixel_level !== undefined ? item.pixel_level : (row ? row.pixel_level : 1.0);
+                if (finalPixel === 0) finalPixel = 0.000001;
 
                 if (row) {
                     db.run(`UPDATE questions SET media_path=?, answer=?, stop_time=?, pixel_level=? WHERE id=?`,
@@ -421,7 +422,7 @@ app.get('/api/admin/franchise/:id', (req, res) => {
 
 app.get('/api/content/random', async (req, res) => {
     const category = req.query.category || 'movie';
-    
+
     const lastQuoteId = req.query.last_quote_id ? parseInt(req.query.last_quote_id) : null;
     const lastCharId = req.query.last_char_id ? parseInt(req.query.last_char_id) : null;
     const lastBannerId = req.query.last_banner_id ? parseInt(req.query.last_banner_id) : null;
@@ -433,7 +434,7 @@ app.get('/api/content/random', async (req, res) => {
                             FROM questions q 
                             JOIN franchises f ON q.franchise_id = f.id 
                             WHERE f.category = ? AND q.type = ?`;
-                
+
                 const params = [category, type];
 
                 if (excludeId && !ignoreExclusion) {
@@ -477,9 +478,9 @@ app.get('/api/content/random', async (req, res) => {
         const responseData = {
             category: category,
             title: quoteQ ? quoteQ.franchise_title : (charQ ? charQ.franchise_title : ""),
-            
+
             quote_id: quoteQ ? quoteQ.id : null,
-            quote_franchise_title: quoteQ ? quoteQ.franchise_title : null, 
+            quote_franchise_title: quoteQ ? quoteQ.franchise_title : null,
             answer_quote: quoteQ ? quoteQ.answer : null,
             video_path: quoteQ ? quoteQ.media_path : null,
             stop_timestamp: quoteQ ? quoteQ.stop_time : null,
@@ -519,9 +520,9 @@ app.post('/api/check-answer', (req, res) => {
         if (!question) return res.status(404).json({ error: "Question not found" });
 
         const cleanGuess = userGuess.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-        
+
         const dbAnswer = question.answer || question.franchise_title;
-        
+
         if (!dbAnswer) {
             return res.json({ correct: false });
         }

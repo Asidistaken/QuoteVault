@@ -22,19 +22,19 @@ db.serialize(() => {
     db.run(`CREATE TABLE IF NOT EXISTS franchises (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title TEXT,
-        category TEXT, -- 'movie', 'series', 'game'
+        category TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
     db.run(`CREATE TABLE IF NOT EXISTS questions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         franchise_id INTEGER,
-        type TEXT, -- 'quote', 'character', 'banner'
-        media_path TEXT, -- The video or image file
-        answer TEXT, -- The correct answer string
+        type TEXT,
+        media_path TEXT,
+        answer TEXT,
         difficulty INTEGER DEFAULT 1,
-        stop_time REAL, -- Only used for video/quote type
-        pixel_level REAL DEFAULT 1.0, -- Only used for character/banner type
+        stop_time REAL,
+        pixel_level REAL DEFAULT 1.0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY(franchise_id) REFERENCES franchises(id) ON DELETE CASCADE
     )`);

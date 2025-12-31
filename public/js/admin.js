@@ -392,7 +392,9 @@ function addCharItem(data = {}) {
     const id = data.id || domId;
     const dbId = data.id || '';
     const pixelLevel = data.pixel_level !== undefined ? data.pixel_level : 1.0;
-    const level = pixelLevel * 100;
+    
+    const level = parseFloat((pixelLevel * 100).toFixed(2));
+    
     const mediaPath = data.media_path || data.path || '';
     const html = `
         <div class="card char-card" id="${id}">
@@ -416,7 +418,8 @@ function addCharItem(data = {}) {
                 <div class="slider-row">
                     <input type="range" class="rng-pixel" min="1" max="100" value="${level}" 
                         oninput="syncListPixel('${id}', this.value)">
-                    <input type="number" class="slider-number num-pixel" min="1" max="100" value="${level}" 
+                    
+                    <input type="number" class="slider-number num-pixel" value="${level}" 
                         oninput="syncListPixel('${id}', this.value)">
                 </div>
             </div>
@@ -432,7 +435,9 @@ function addBannerItem(data = {}) {
     const id = data.id || domId;
     const dbId = data.id || '';
     const pixelLevel = data.pixel_level !== undefined ? data.pixel_level : 1.0;
-    const level = pixelLevel * 100;
+    
+    const level = parseFloat((pixelLevel * 100).toFixed(2));
+    
     const mediaPath = data.media_path || data.path || '';
     const html = `
         <div class="card banner-card" id="${id}">
@@ -456,7 +461,8 @@ function addBannerItem(data = {}) {
                 <div class="slider-row">
                     <input type="range" class="rng-pixel" min="1" max="100" value="${level}" 
                         oninput="syncListPixel('${id}', this.value)">
-                    <input type="number" class="slider-number num-pixel" min="1" max="100" value="${level}" 
+
+                    <input type="number" class="slider-number num-pixel" value="${level}" 
                         oninput="syncListPixel('${id}', this.value)">
                 </div>
             </div>
@@ -492,8 +498,12 @@ function handleListImage(input, cardId) {
     const ph = card.querySelector('.img-ph');
     const rawImg = card.querySelector('.raw-preview');
     const previewImg = card.querySelector('.cv-preview');
-    const pixelInput = card.querySelector('.rng-pixel');
-    const level = pixelInput ? (pixelInput.value / 100) : 1.0;
+    
+    const numInput = card.querySelector('.num-pixel');
+    const rngInput = card.querySelector('.rng-pixel');
+    const val = numInput ? numInput.value : (rngInput ? rngInput.value : 100);
+    
+    const level = val / 100;
     
     const tempUrl = URL.createObjectURL(file);
     
@@ -643,12 +653,11 @@ async function saveContent() {
             const fileInput = itemDiv.querySelector('.inp-file') || itemDiv.querySelector('.file-video') || itemDiv.querySelector('.file-img');
             const answerInput = itemDiv.querySelector('.inp-answer') || itemDiv.querySelector('.inp-quote');
             const timeInput = itemDiv.querySelector('.inp-time');
-            const pixelInput = itemDiv.querySelector('.inp-pixel') || itemDiv.querySelector('.rng-pixel');
+            const pixelInput = itemDiv.querySelector('.num-pixel') || itemDiv.querySelector('.inp-pixel') || itemDiv.querySelector('.rng-pixel');
             const answerVal = answerInput ? answerInput.value.trim() : '';
             const timeVal = timeInput ? timeInput.value.trim() : '';
             const hasDbId = dbIdInput && dbIdInput.value;
-            const hasNewFile = fileInput && fileInput.files.length > 0;
-            if (!hasDbId && !hasNewFile) {
+            const hasNewFile = fileInput && fileInput.files.length > 0;        if (!hasDbId && !hasNewFile) {
                 validationError = true;
                 const mediaContainer = itemDiv.querySelector('.media-container');
                 highlightError(mediaContainer);
