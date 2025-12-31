@@ -252,8 +252,6 @@ window.revealHint = function (isAuto = false) {
     if (state.solved) return;
     if (hintBtn && hintBtn.classList.contains('disabled')) return;
 
-    // FIX: Increment hintsUsed even if isAuto is true.
-    // This ensures the image actually unblurs when the game triggers a hint.
     state.hintsUsed++;
 
     if (window.currentMode === 'quote') {
@@ -262,17 +260,12 @@ window.revealHint = function (isAuto = false) {
         if (state.hintsUsed >= 4 && hintBtn) hintBtn.classList.add('disabled');
 
     } else {        
-        // --- IMAGE MODES ---
         if (state.hintsUsed <= 5) {
-            // Hints 1-4: Unblur
-            // Hint 5: Clear Image
             renderImages();
             
         } else {
-            // Hint 6 (Attempt 9): Start Drag & Drop
             isDragMode = true;
             
-            // Calculate Level (Hint 6 starts at 1)
             const dndLevel = state.hintsUsed - 5; 
             setupDragDrop(state.answer, dndLevel);
 
