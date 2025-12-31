@@ -200,11 +200,15 @@ window.updateInputState = function () {
         answerInput.disabled = false;
         answerInput.value = "";
     }
+
     if (submitBtn) {
         submitBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i>';
         submitBtn.classList.remove('next-btn');
     }
-    if (hintBtn) hintBtn.classList.remove('disabled');
+
+    if (hintBtn) {
+        hintBtn.classList.remove('disabled');
+    }
 
     if (state.solved) {
         if (answerInput) {
@@ -217,33 +221,31 @@ window.updateInputState = function () {
             submitBtn.classList.add('next-btn');
         }
         if (mode !== 'quote') renderImages();
-        return;
-    }
-
-    let shouldTriggerDrag = false;
-    let dndLevel = 0;
-
-    if (mode === 'quote') {
-        if (state.hintsUsed > 0) {
-            shouldTriggerDrag = true;
-            dndLevel = state.hintsUsed;
-        }
-        if (state.hintsUsed >= 4 && hintBtn) hintBtn.classList.add('disabled');
 
     } else {
-        if (state.hintsUsed >= 6) {
-            shouldTriggerDrag = true;
-            dndLevel = state.hintsUsed - 5;
+        let shouldTriggerDrag = false;
+        let dndLevel = 0;
 
-            if (hintBtn) hintBtn.classList.add('disabled');
+        if (mode === 'quote') {
+            if (state.hintsUsed > 0) {
+                shouldTriggerDrag = true;
+                dndLevel = state.hintsUsed;
+            }
+            if (state.hintsUsed >= 4 && hintBtn) hintBtn.classList.add('disabled');
+
+        } else {
+            if (state.hintsUsed >= 6) {
+                shouldTriggerDrag = true;
+                dndLevel = state.hintsUsed - 5;
+            }
+            if (state.hintsUsed >= 9 && hintBtn) hintBtn.classList.add('disabled');
+            renderImages();
         }
-        
-        renderImages();
-    }
 
-    if (shouldTriggerDrag) {
-        isDragMode = true;
-        setupDragDrop(state.answer, dndLevel);
+        if (shouldTriggerDrag) {
+            isDragMode = true;
+            setupDragDrop(state.answer, dndLevel);
+        }
     }
 };
 
@@ -252,31 +254,27 @@ window.revealHint = function (isAuto = false) {
     if (state.solved) return;
     if (hintBtn && hintBtn.classList.contains('disabled')) return;
 
-    // FIX: Increment hintsUsed even if isAuto is true.
-    // This ensures the image actually unblurs when the game triggers a hint.
-    state.hintsUsed++;
+    if (!isAuto) state.hintsUsed++;
 
     if (window.currentMode === 'quote') {
         isDragMode = true;
         setupDragDrop(state.answer, state.hintsUsed);
         if (state.hintsUsed >= 4 && hintBtn) hintBtn.classList.add('disabled');
 
-    } else {        
-        // --- IMAGE MODES ---
-        if (state.hintsUsed <= 5) {
-            // Hints 1-4: Unblur
-            // Hint 5: Clear Image
+    } else {
+        if (state.hintsUsed <= 4) {
             renderImages();
-            
+        } else if (state.hintsUsed === 5) {
+            if (charImg) charImg.src = `/api/image-proxy?path=${encodeURIComponent(charImg.dataset.src)}&level=1.0`;
+            if (bannerImg) bannerImg.src = `/api/image-proxy?path=${encodeURIComponent(bannerImg.dataset.src)}&level=1.0`;
         } else {
-            // Hint 6 (Attempt 9): Start Drag & Drop
             isDragMode = true;
-            
-            // Calculate Level (Hint 6 starts at 1)
-            const dndLevel = state.hintsUsed - 5; 
+            const dndLevel = state.hintsUsed - 5;
             setupDragDrop(state.answer, dndLevel);
 
-            if (hintBtn) hintBtn.classList.add('disabled');
+            if (dndLevel >= 4 && hintBtn) {
+                hintBtn.classList.add('disabled');
+            }
         }
     }
 };
@@ -448,12 +446,8 @@ window.renderImages = function () {
 
     const getUrl = (imgElement, state) => {
         if (!imgElement.dataset.src) return '';
-
-        if (state.solved || state.hintsUsed >= 5) {
-            return `/api/image-proxy?path=${encodeURIComponent(imgElement.dataset.src)}&level=1.0&t=${Date.now()}`;
-        }
-
-        return `/api/image-proxy?path=${encodeURIComponent(imgElement.dataset.src)}&hint=${state.hintsUsed}&t=${Date.now()}`;
+        const param = state.solved ? 'level=1.0' : `hint=${state.hintsUsed}`;
+        return `/api/image-proxy?path=${encodeURIComponent(imgElement.dataset.src)}&${param}&t=${Date.now()}`;
     };
 
     if (charImg && charImg.dataset.src) {
@@ -498,66 +492,78 @@ function checkAnswer() {
             timeTaken: timeTaken
         })
     })
-    .then(res => res.json())
-    .then(data => {
-        if (data.correct) {
-            state.solved = true;
-            if (mode !== 'quote') renderImages();
+        .then(res => res.json())
+        .then(data => {
+            if (data.correct) {
+                state.solved = true;
 
-            if (isDragMode) {
-                const allSlots = document.querySelectorAll('.char-slot');
-                allSlots.forEach((slot, index) => {
-                    slot.classList.add('correct-state');
-                    const tile = slot.querySelector('.drag-tile');
-                    if (tile) {
-                        tile.draggable = false;
-                        tile.classList.add('locked-tile');
-                        tile.style.animationDelay = `${index * 0.05}s`;
-                        tile.classList.add('success-anim');
-                    }
-                });
-            } else {
-                answerInput.classList.add('correct');
-                answerInput.value = data.correctString;
-                answerInput.disabled = true;
-            }
+                if (mode !== 'quote') renderImages();
 
-            if (submitBtn) {
-                submitBtn.innerHTML = '<i class="fa-solid fa-forward-step"></i>';
-                submitBtn.classList.add('next-btn');
-            }
-            if (mode === 'quote') {
-                const v = document.getElementById('clip');
-                if(v) { v.currentTime = window.stopTimestamp; v.play(); }
-                const vw = document.querySelector('.video-wrapper');
-                if(vw) vw.classList.add('playing');
-                const h = document.querySelector('.play-hint');
-                if(h) h.innerHTML = '';
-            }
+                if (isDragMode) {
+                    const allSlots = document.querySelectorAll('.char-slot');
 
-        } else {
-            if (isDragMode) {
-                const con = document.querySelector('.slots-container');
-                if (con) {
-                    con.animate([
-                        { transform: 'translateX(0)' }, { transform: 'translateX(-10px)' },
-                        { transform: 'translateX(10px)' }, { transform: 'translateX(0)' }
-                    ], { duration: 400 });
-                }
-            } else {
-                answerInput.classList.add('shake', 'wrong');
-                setTimeout(() => answerInput.classList.remove('shake', 'wrong'), 500);
-            }
+                    allSlots.forEach((slot, index) => {
+                        slot.classList.add('correct-state');
 
-            if (!isDragMode) {
-                if (window.currentMode === 'quote') {
-                    if (state.attempts >= 5) window.revealHint(true);
+                        const tile = slot.querySelector('.drag-tile');
+                        if (tile) {
+                            tile.draggable = false;
+                            tile.classList.add('locked-tile');
+
+                            tile.style.animationDelay = `${index * 0.05}s`;
+                            tile.classList.add('success-anim');
+                        }
+                    });
+
                 } else {
-                    if (state.attempts >= 3) {
-                        window.revealHint(true); 
+                    answerInput.classList.add('correct');
+                    answerInput.value = data.correctString;
+                    answerInput.disabled = true;
+                }
+
+                if (submitBtn) {
+                    submitBtn.innerHTML = '<i class="fa-solid fa-forward-step"></i>';
+                    submitBtn.classList.add('next-btn');
+                }
+
+                if (mode === 'quote') {
+                    const v = document.getElementById('clip');
+                    if (v) {
+                        v.currentTime = window.stopTimestamp;
+                        v.play();
+                        const vw = document.querySelector('.video-wrapper');
+                        if (vw) vw.classList.add('playing');
+                        const hint = document.querySelector('.play-hint');
+                        if (hint) hint.innerHTML = '';
+                    }
+                }
+            } else {
+                if (isDragMode) {
+                    const con = document.querySelector('.slots-container');
+                    if (con) {
+                        con.animate([
+                            { transform: 'translateX(0)' },
+                            { transform: 'translateX(-10px)' },
+                            { transform: 'translateX(10px)' },
+                            { transform: 'translateX(0)' }
+                        ], { duration: 400 });
+                    }
+                } else {
+                    answerInput.classList.add('shake', 'wrong');
+                    setTimeout(() => answerInput.classList.remove('shake', 'wrong'), 500);
+                }
+
+                if (!isDragMode && state.attempts >= 5) {
+                    if (window.currentMode === 'quote') {
+                        window.revealHint(true);
+                    } else {
+                        state.hintsUsed = 6;
+                        state.level = 1.0;
+                        renderImages();
+                        isDragMode = true;
+                        setupDragDrop(state.answer, 1);
                     }
                 }
             }
-        }
-    });
+        });
 }
