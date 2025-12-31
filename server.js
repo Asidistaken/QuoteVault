@@ -561,36 +561,38 @@ app.get('/api/image-proxy', async (req, res) => {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
 
     try {
+        
         let targetLevel;
+        const question = await new Promise((resolve, reject) => {
+            db.get(`SELECT pixel_level FROM questions WHERE media_path = ?`, [imgPath], (err, row) => {
+                if (err) reject(err);
+                else resolve(row);
+            });
+        });
+
+        const startLevel = (question && question.pixel_level !== undefined) ? question.pixel_level : 0.02;
 
         if (level !== undefined) {
             targetLevel = parseFloat(level);
-        }
+        } 
         else if (hint !== undefined) {
             const hintIdx = parseInt(hint);
+                        
+            if (hintIdx >= 5) {
+                targetLevel = 1.0;
+            } else {
+                const totalGap = 1.0 - startLevel;
+                const progress = hintIdx / 5.0;
+                targetLevel = startLevel + (totalGap * progress);
+            }
 
-            const question = await new Promise((resolve, reject) => {
-                db.get(`SELECT pixel_level FROM questions WHERE media_path = ?`, [imgPath], (err, row) => {
-                    if (err) reject(err);
-                    else resolve(row);
-                });
-            });
-
-            const startLevel = (question && question.pixel_level !== undefined) ? question.pixel_level : 0.02;
-            targetLevel = startLevel + (hintIdx * 0.15);
         } else {
-            const question = await new Promise((resolve, reject) => {
-                db.get(`SELECT pixel_level FROM questions WHERE media_path = ?`, [imgPath], (err, row) => {
-                    if (err) reject(err);
-                    else resolve(row);
-                });
-            });
-            targetLevel = (question && question.pixel_level !== undefined) ? question.pixel_level : 0.02;
+            targetLevel = startLevel;
         }
 
         const fullPath = path.join(__dirname, 'public', imgPath);
 
-        if (targetLevel >= 0.95) {
+        if (targetLevel >= 0.98) {
             return res.sendFile(fullPath);
         }
 
@@ -598,9 +600,11 @@ app.get('/api/image-proxy', async (req, res) => {
         const metadata = await originalImage.metadata();
         const { width, height } = metadata;
 
-        const MAX_BLOCK_SIZE = 50;
+        const MAX_BLOCK_SIZE = 64;
+        
         let pixelSize = Math.floor(MAX_BLOCK_SIZE * (1.0 - targetLevel));
-        pixelSize = Math.max(2, pixelSize);
+        
+        pixelSize = Math.max(2, Math.min(128, pixelSize));
 
         const reducedWidth = Math.max(1, Math.round(width / pixelSize));
         const reducedHeight = Math.max(1, Math.round(height / pixelSize));
