@@ -404,7 +404,7 @@ function addCharItem(data = {}) {
                 <div class="placeholder-text img-ph">
                     <i class="fa-regular fa-user"></i> No Image
                 </div>
-                <canvas class="cv-preview" style="display:none;"></canvas>
+                <img class="cv-preview" style="display:none;">
                 <img class="raw-preview" style="display:none;">
                 <button class="btn-upload" onclick="triggerUpload('${id}', '.file-img')">
                     <i class="fa-solid fa-upload"></i>
@@ -444,7 +444,7 @@ function addBannerItem(data = {}) {
                 <div class="placeholder-text img-ph">
                     <i class="fa-regular fa-image"></i> No Image
                 </div>
-                <canvas class="cv-preview" style="display:none;"></canvas>
+                <img class="cv-preview" style="display:none;">
                 <img class="raw-preview" style="display:none;">
                 <button class="btn-upload" onclick="triggerUpload('${id}', '.file-img')">
                     <i class="fa-solid fa-upload"></i>
@@ -491,34 +491,38 @@ function handleListImage(input, cardId) {
     const card = document.getElementById(cardId);
     const ph = card.querySelector('.img-ph');
     const rawImg = card.querySelector('.raw-preview');
-    const canvas = card.querySelector('.cv-preview');
+    const previewImg = card.querySelector('.cv-preview');
     const pixelInput = card.querySelector('.rng-pixel');
     const level = pixelInput ? (pixelInput.value / 100) : 1.0;
-    const img = new Image();
-    img.onload = function () {
-        rawImg.src = img.src;
-        rawImg.style.display = 'none';
-        applyPixel(img, canvas, level);
-        canvas.style.display = 'block';
-        ph.style.display = 'none';
-    };
-    img.src = URL.createObjectURL(file);
+    
+    const tempUrl = URL.createObjectURL(file);
+    
+    rawImg.src = tempUrl;
+    rawImg.style.display = 'none';
+    
+    previewImg.src = tempUrl;
+    previewImg.style.display = 'block';
+    ph.style.display = 'none';
+    
+    card.dataset.tempFile = 'true';
 }
 
 function loadListImage(cardId, path, level) {
     const card = document.getElementById(cardId);
     const ph = card.querySelector('.img-ph');
     const rawImg = card.querySelector('.raw-preview');
-    const canvas = card.querySelector('.cv-preview');
-    const img = new Image();
-    img.onload = function () {
-        rawImg.src = img.src;
-        rawImg.style.display = 'none';
-        applyPixel(img, canvas, level || 1.0);
-        canvas.style.display = 'block';
-        ph.style.display = 'none';
-    };
-    img.src = path;
+    const previewImg = card.querySelector('.cv-preview');
+    
+    rawImg.src = path;
+    rawImg.style.display = 'none';
+    
+    const proxyUrl = `/api/image-proxy?path=${encodeURIComponent(path)}&level=${level || 1.0}`;
+    previewImg.src = proxyUrl;
+    previewImg.style.display = 'block';
+    ph.style.display = 'none';
+    
+    card.dataset.tempFile = 'false';
+    card.dataset.serverPath = path;
 }
 
 function syncListPixel(cardId, val) {
@@ -527,25 +531,21 @@ function syncListPixel(cardId, val) {
     const number = card.querySelector('.num-pixel');
     if (range) range.value = val;
     if (number) number.value = val;
+    
     const rawImg = card.querySelector('.raw-preview');
-    const canvas = card.querySelector('.cv-preview');
-    if (rawImg && rawImg.src && canvas) {
-        applyPixel(rawImg, canvas, val / 100);
+    const previewImg = card.querySelector('.cv-preview');
+    
+    if (card.dataset.tempFile === 'false' && card.dataset.serverPath) {
+        const level = val / 100;
+        const proxyUrl = `/api/image-proxy?path=${encodeURIComponent(card.dataset.serverPath)}&level=${level}`;
+        previewImg.src = proxyUrl;
     }
 }
 
-function applyPixel(img, canvas, level) {
-    const ctx = canvas.getContext('2d');
-    const w = img.naturalWidth || img.width;
-    const h = img.naturalHeight || img.height;
-    const scale = Math.max(0.01, level);
-    const smallW = Math.floor(w * scale);
-    const smallH = Math.floor(h * scale);
-    canvas.width = w;
-    canvas.height = h;
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(img, 0, 0, smallW, smallH);
-    ctx.drawImage(canvas, 0, 0, smallW, smallH, 0, 0, w, h);
+function applyPixelFromPhoton(imgElement, imagePath, level) {
+    const proxyUrl = `/api/image-proxy?path=${encodeURIComponent(imagePath)}&level=${level}`;
+    imgElement.src = proxyUrl;
+    imgElement.style.display = 'block';
 }
 
 function loadEdit(item) {
