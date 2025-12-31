@@ -496,7 +496,7 @@ input[type=range]::-webkit-slider-runnable-track {
 }
 
 .slider-number {
-    width: 50px;
+    width: 60px;
     background: #111;
     border: 1px solid #333;
     color: white;
