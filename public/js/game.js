@@ -254,7 +254,7 @@ window.revealHint = function (isAuto = false) {
     if (state.solved) return;
     if (hintBtn && hintBtn.classList.contains('disabled')) return;
 
-    if (!isAuto) state.hintsUsed++;
+    state.hintsUsed++;
 
     if (window.currentMode === 'quote') {
         isDragMode = true;
@@ -553,15 +553,15 @@ function checkAnswer() {
                     setTimeout(() => answerInput.classList.remove('shake', 'wrong'), 500);
                 }
 
-                if (!isDragMode && state.attempts >= 5) {
+                if (!isDragMode) {
                     if (window.currentMode === 'quote') {
-                        window.revealHint(true);
+                        // DRAG DROP AFTER 5 ATTEMPTS
+                        if (state.attempts >= 5) window.revealHint(true);
                     } else {
-                        state.hintsUsed = 6;
-                        state.level = 1.0;
-                        renderImages();
-                        isDragMode = true;
-                        setupDragDrop(state.answer, 1);
+                        // IMAGE HELP AFTER 3 ATTEMPTS
+                        if (state.attempts >= 3) {
+                            window.revealHint(true); 
+                        }
                     }
                 }
             }
