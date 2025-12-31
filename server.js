@@ -6,6 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const db = require('./database');
 const sharp = require('sharp');
+const photon = require('@silvia-odwyer/photon-node');
 
 const { generateRecommendations } = require('./geminiRecommend');
 
@@ -558,70 +559,59 @@ app.get('/api/image-proxy', async (req, res) => {
 
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
 
-    try {
-        let targetLevel;
+    const getTargetLevel = async () => {
+        let targetLevel = 0.02;
 
         if (level !== undefined) {
             targetLevel = parseFloat(level);
-        }
-
-        else if (hint !== undefined) {
-            const hintIdx = parseInt(hint);
-
-            const question = await new Promise((resolve, reject) => {
-                db.get(`SELECT pixel_level FROM questions WHERE media_path = ?`, [imgPath], (err, row) => {
-                    if (err) reject(err);
-                    else resolve(row);
-                });
-            });
-
-            const startLevel = (question && question.pixel_level !== undefined) ? question.pixel_level : 0.02;
-
-            targetLevel = startLevel + (hintIdx * 0.15);
         } else {
-            const question = await new Promise((resolve, reject) => {
+            const question = await new Promise((resolve) => {
                 db.get(`SELECT pixel_level FROM questions WHERE media_path = ?`, [imgPath], (err, row) => {
-                    if (err) reject(err);
-                    else resolve(row);
+                    resolve(row);
                 });
             });
-            targetLevel = (question && question.pixel_level !== undefined) ? question.pixel_level : 0.02;
-        }
+            const baseLevel = (question && question.pixel_level !== undefined) ? question.pixel_level : 0.02;
 
+            if (hint !== undefined) {
+                targetLevel = baseLevel + (parseInt(hint) * 0.15);
+            } else {
+                targetLevel = baseLevel;
+            }
+        }
+        return targetLevel;
+    };
+
+    getTargetLevel().then(targetLevel => {
         const fullPath = path.join(__dirname, 'public', imgPath);
 
         if (targetLevel >= 0.95) {
             return res.sendFile(fullPath);
         }
+        try {
+            const inputBuffer = fs.readFileSync(fullPath);
+            const pImage = photon.PhotonImage.new_from_byteslice(inputBuffer);
 
-        const originalImage = sharp(fullPath);
-        const metadata = await originalImage.metadata();
-        const { width, height } = metadata;
+            const MAX_BLOCK_SIZE = 50; 
+            let blockSize = Math.floor(MAX_BLOCK_SIZE * (1.0 - targetLevel));
+            blockSize = Math.max(1, blockSize);
 
-        const MAX_BLOCK_SIZE = 50;
-        let pixelSize = Math.floor(MAX_BLOCK_SIZE * (1.0 - targetLevel));
-        pixelSize = Math.max(2, pixelSize);
+            if (blockSize > 1) {
+                photon.pixelize(pImage, blockSize);
+            }
 
-        const reducedWidth = Math.max(1, Math.round(width / pixelSize));
-        const reducedHeight = Math.max(1, Math.round(height / pixelSize));
+            const outputBuffer = pImage.get_bytes();
 
-        const buffer = await sharp(
-            await originalImage
-                .resize(reducedWidth, reducedHeight, { fit: 'fill', kernel: sharp.kernel.nearest })
-                .toFormat('png')
-                .toBuffer()
-        )
-            .resize(width, height, { fit: 'fill', kernel: sharp.kernel.nearest })
-            .toFormat('png')
-            .toBuffer();
-
-        res.set('Content-Type', 'image/png');
-        res.send(buffer);
-
-    } catch (error) {
-        console.error("Image Proxy Error:", error);
-        res.status(404).send('Image not found');
-    }
+            res.set('Content-Type', 'image/png');
+            res.send(outputBuffer);
+            
+        } catch (error) {
+            console.error("Photon Image Proxy Error:", error);
+            res.status(500).send('Error processing image');
+        }
+    }).catch(err => {
+        console.error("DB Error in proxy:", err);
+        res.status(500).send('Server Error');
+    });
 });
 
 app.get('/api/recommend', (req, res) => {
