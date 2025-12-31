@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/styles.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    
+
     <script src="js/player.js"></script>
     <script src="js/game.js"></script>
     <script src="js/mainpage.js"></script>
@@ -36,11 +36,40 @@
                             class="fa-solid fa-clapperboard"></i></button>
                     <button class="mode-btn" title="Character Visage" onclick="setMode('character')"><i
                             class="fa-solid fa-user-secret"></i></button>
-                    <button class="mode-btn" title="Banner Fragment" onclick="setMode('banner')"><i class="fa-solid fa-image"></i></button>
+                    <button class="mode-btn" title="Banner Fragment" onclick="setMode('banner')"><i
+                            class="fa-solid fa-image"></i></button>
 
-                    <button class="mode-btn suggest-btn" title="Suggest Content">
-                        <i class="fa-solid fa-shuffle"></i>
+                    <button class="mode-btn suggest-btn" title="AI Suggestions" onclick="openRecModal()">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
                     </button>
+
+                    <div id="rec-modal" class="modal-overlay hidden">
+                        <div class="modal-content rec-content">
+                            <div class="modal-header">
+                                <h3><i class="fa-solid fa-robot"></i> AI Recommendations</h3>
+                                <button class="btn-close-modal" onclick="closeRecModal()">
+                                    <i class="fa-solid fa-times"></i>
+                                </button>
+                            </div>
+
+                            <div class="modal-body" style="max-height: 50vh; overflow-y: auto; padding-right: 5px;">
+                                <div id="rec-list" class="rec-list">
+                                </div>
+                            </div>
+
+                            <div class="modal-footer"
+                                style="padding: 15px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; gap: 10px; background: rgba(0,0,0,0.2);">
+                                <span style="font-size: 0.9rem; color: #ccc;">Get</span>
+                                <input type="number" id="rec-count-input" value="3" min="1" max="10"
+                                    style="width: 50px; padding: 5px; border-radius: 4px; border: none; text-align: center;">
+                                <span style="font-size: 0.9rem; color: #ccc;">more picks</span>
+                                <button onclick="manualRefreshRecs()"
+                                    style="padding: 6px 15px; background: var(--primary); color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                                    Submit
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </aside>
             </div>
 
@@ -89,12 +118,14 @@
                 <div id="text-hint-container" class="text-hint-container"></div>
 
                 <div class="answer-section">
-                    <button class="skip-btn" id="skip-btn" title="Skip Level"><i class="fa-solid fa-forward"></i></button>
+                    <button class="skip-btn" id="skip-btn" title="Skip Level"><i
+                            class="fa-solid fa-forward"></i></button>
 
-                    <button class="hint-btn" title="Hint" onclick="revealHint()"><i class="fa-solid fa-lightbulb"></i></button>
-                    
+                    <button class="hint-btn" title="Hint" onclick="revealHint()"><i
+                            class="fa-solid fa-lightbulb"></i></button>
+
                     <input type="text" placeholder="Guess..." class="answer-input">
-                    
+
                     <button class="submit-btn" title="Submit"><i class="fa-solid fa-paper-plane"></i></button>
                 </div>
             </main>

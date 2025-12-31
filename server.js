@@ -7,6 +7,8 @@ const fs = require('fs');
 const db = require('./database');
 const sharp = require('sharp');
 
+const { generateRecommendations } = require('./geminiRecommend');
+
 const app = express();
 const PORT = 3000;
 
@@ -445,20 +447,16 @@ app.get('/api/admin/franchise/:id', (req, res) => {
 
 
 // --- ROUTES: GAME LOGIC ---
-/* --- UPDATED: DECOUPLED SELECTION LOGIC --- */
 app.get('/api/content/random', async (req, res) => {
     const category = req.query.category || 'movie';
 
-    // Helper to fetch one random valid question of a specific type
     const getRandomItem = (type) => {
         return new Promise((resolve, reject) => {
-            // We join Franchises to get the Title
             let sql = `SELECT q.*, f.title as franchise_title 
                        FROM questions q 
                        JOIN franchises f ON q.franchise_id = f.id 
                        WHERE f.category = ? AND q.type = ?`;
             
-            // STRICT RULE: If it's character or banner, it MUST have a media path.
             if (type === 'character' || type === 'banner') {
                 sql += ` AND q.media_path IS NOT NULL AND q.media_path != ''`;
             }
@@ -473,23 +471,22 @@ app.get('/api/content/random', async (req, res) => {
     };
 
     try {
-        // Run 3 independent queries in parallel.
-        // This ensures they can be from DIFFERENT franchises.
         const [quoteQ, charQ, bannerQ] = await Promise.all([
             getRandomItem('quote'),
             getRandomItem('character'),
             getRandomItem('banner')
         ]);
 
-        // If any category returns nothing (e.g., DB is empty), handle gracefully
         if (!quoteQ && !charQ && !bannerQ) {
             return res.json(null);
         }
 
         const responseData = {
-            // We no longer have a "Global" Franchise ID/Title because they are mixed.
-            // But we can return the category.
             category: category,
+            
+            // FIX 1: Provide a fallback generic title (using quote's title)
+            // This prevents 'currentData.title' from being undefined in game.js
+            title: quoteQ ? quoteQ.franchise_title : (charQ ? charQ.franchise_title : ""),
 
             // --- QUOTE DATA ---
             quote_id: quoteQ ? quoteQ.id : null,
@@ -501,14 +498,16 @@ app.get('/api/content/random', async (req, res) => {
             // --- CHARACTER DATA ---
             char_id: charQ ? charQ.id : null,
             char_franchise_title: charQ ? charQ.franchise_title : null,
-            answer_char: charQ ? charQ.answer : null,
+            // FIX 2: If answer is null, use franchise title immediately
+            answer_char: charQ ? (charQ.answer || charQ.franchise_title) : null,
             image_char_path: charQ ? charQ.media_path : null,
             char_pixel_level: charQ ? charQ.pixel_level : null,
 
             // --- BANNER DATA ---
             banner_id: bannerQ ? bannerQ.id : null,
             banner_franchise_title: bannerQ ? bannerQ.franchise_title : null,
-            answer_banner: bannerQ ? bannerQ.answer : null,
+            // FIX 3: If answer is null, use franchise title immediately
+            answer_banner: bannerQ ? (bannerQ.answer || bannerQ.franchise_title) : null,
             image_banner_path: bannerQ ? bannerQ.media_path : null,
             banner_pixel_level: bannerQ ? bannerQ.pixel_level : null
         };
@@ -637,6 +636,54 @@ app.get('/api/image-proxy', async (req, res) => {
         console.error("Image Proxy Error:", error);
         res.status(404).send('Image not found');
     }
+});
+
+/* --- AI RECOMMENDATION ROUTE --- */
+app.get('/api/recommend', (req, res) => {
+    if (!req.session.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const userId = req.session.userId;
+    const category = req.query.category || 'movie';
+    const limit = parseInt(req.query.limit) || 3; // Read the count
+    
+    // Read exclude list (sent as JSON string)
+    let excludeList = [];
+    if (req.query.exclude) {
+        try {
+            excludeList = JSON.parse(req.query.exclude);
+        } catch (e) {
+            console.error("Failed to parse exclude list", e);
+        }
+    }
+
+    const sql = `
+        SELECT f.title, f.category, q.type, ua.is_solved, ua.hints_used, ua.attempts 
+        FROM user_activity ua
+        JOIN questions q ON ua.question_id = q.id
+        JOIN franchises f ON q.franchise_id = f.id
+        WHERE ua.user_id = ? AND f.category = ?
+        ORDER BY ua.last_played DESC LIMIT 20
+    `;
+
+    db.all(sql, [userId, category], async (err, rows) => {
+        if (err) return res.status(500).json({ error: "Database error" });
+        
+        if (!rows || rows.length === 0) return res.json([]); 
+
+        const historyText = rows.map(h => {
+            const status = h.is_solved ? "WON" : "LOST";
+            return `- Played "${h.title}" (${h.category}) in [${h.type}] mode. Status: ${status} (Hints: ${h.hints_used}).`;
+        }).join("\n");
+
+        //console.log(`[AI] Generating ${limit} recs for User ${userId}...`);
+        
+        // Pass limit and excludeList to the AI function
+        const recommendations = await generateRecommendations(historyText, category, limit, excludeList);
+        
+        res.json(recommendations);
+    });
 });
 
 app.listen(PORT, () => {
